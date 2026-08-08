@@ -63,9 +63,9 @@
     const w=Math.max(320,E.svg.clientWidth), h=300, y=150, L=62, R=w-20, x=d=>L+d/hi*(R-L), nx=x(M.nkt), bx=ball?x(ball.depth):R+1;
     let s='<defs><linearGradient id="pipe" x1="0" x2="0" y1="0" y2="1"><stop stop-color="#dce8e3"/><stop offset=".5" stop-color="#51665e"/><stop offset="1" stop-color="#94a69f"/></linearGradient><pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line y2="8" stroke="#fff" stroke-opacity=".08" stroke-width="3"/></pattern></defs>';
     s+=`<rect x="${L}" y="136" width="${R-L}" height="28" rx="14" fill="url(#pipe)"/><rect x="${bx}" y="118" width="${Math.max(0,R-bx)}" height="64" fill="#10191d" opacity=".68"/><rect x="${bx}" y="118" width="${Math.max(0,R-bx)}" height="64" fill="url(#hatch)"/><line x1="${L}" y1="${y}" x2="${nx}" y2="${y}" stroke="#688df2" stroke-width="7"/><line x1="${nx}" y1="125" x2="${nx}" y2="175" stroke="#86a3f5" stroke-width="4"/><circle cx="${nx}" cy="${y}" r="7" fill="#b9c9f7"/><text x="${nx}" y="103" text-anchor="middle" fill="#b9c9f7" font-size="13" font-weight="700">КОНЕЦ НКТ</text><text x="${nx}" y="119" text-anchor="middle" fill="#91a29c" font-size="11">${fmt(M.nkt)} м</text>`;
-    M.points.forEach((p,i)=>{const px=x(p.depth),muted=ball&&p.depth>ball.depth,up=i%2===0,ly=up?55:245,lend=up?95:205,col=muted?'#68756f':'#c5e77b',tc=muted?'#7d8984':'#edf3ee';s+=`<line x1="${px}" y1="127" x2="${px}" y2="173" stroke="${col}" stroke-width="3"/><circle cx="${px}" cy="${y}" r="8" fill="${col}" stroke="#29343a" stroke-width="3"/><line x1="${px}" y1="${up?124:176}" x2="${px}" y2="${lend}" stroke="#fff" stroke-opacity=".14"/><text x="${px}" y="${ly}" text-anchor="middle" fill="${tc}" font-size="13" font-weight="700">№ ${p.port}</text><text x="${px}" y="${ly+15}" text-anchor="middle" fill="#91a29c" font-size="10">${fmt(p.depth)} м</text>`;});
+    M.points.forEach((p,i)=>{const px=x(p.depth),muted=ball&&p.depth>ball.depth,lower=i%2!==0,ly=lower?82:47,lend=lower?105:70,col=muted?'#68756f':'#c5e77b',tc=muted?'#7d8984':'#edf3ee';s+=`<line x1="${px}" y1="127" x2="${px}" y2="173" stroke="${col}" stroke-width="3"/><circle cx="${px}" cy="${y}" r="8" fill="${col}" stroke="#29343a" stroke-width="3"/><line x1="${px}" y1="124" x2="${px}" y2="${lend}" stroke="#fff" stroke-opacity=".14"/><text x="${px}" y="${ly}" text-anchor="middle" fill="${tc}" font-size="13" font-weight="700">№ ${p.port}</text><text x="${px}" y="${ly+15}" text-anchor="middle" fill="#91a29c" font-size="10">${fmt(p.depth)} м</text>`;});
     if(ball){const side=bx+150<=R?1:-1,lineEnd=bx+side*125,textX=bx+side*8,anchor=side===1?'start':'end';s+=`<circle cx="${bx}" cy="${y}" r="16" fill="#ef8058" stroke="#ffd0bf" stroke-width="3"/><circle cx="${bx-4}" cy="${y-4}" r="4" fill="#ffc2aa"/><path d="M ${bx} ${y-16}V108H${lineEnd}" fill="none" stroke="#ef8058" stroke-width="2"/><text x="${textX}" y="100" text-anchor="${anchor}" fill="#ffb296" font-size="12" font-weight="800">ШАР - ПОРТ ${ball.port}</text>`;}
-    E.svg.setAttribute('viewBox',`0 0 ${w} ${h}`); E.svg.style.minWidth='0'; E.svg.innerHTML=s;drawMiniWell(ball);drawSimulation(test,ball);await drawCepstrum(test);
+    E.svg.setAttribute('viewBox',`0 0 ${w} ${h}`); E.svg.style.minWidth='0'; E.svg.innerHTML=s;drawMiniWell(ball);drawSimulation(test,ball);scheduleStickyState();await drawCepstrum(test);
   }
 
   function drawMiniWell(ball){const deepest=Math.max(...M.points.map(p=>p.depth),M.nkt),maxDepth=Math.ceil(deepest/500)*500,w=Math.max(240,E.miniWell.clientWidth||E.wellHead.clientWidth),h=40,y=20,L=62,R=w-20,x=d=>L+d/maxDepth*(R-L),nktX=x(M.nkt),ballX=ball?x(ball.depth):R+1;let markup=`<rect x="${L}" y="16" width="${R-L}" height="8" rx="4" fill="#82908b"/><rect x="${ballX}" y="11" width="${Math.max(0,R-ballX)}" height="18" rx="2" fill="#121d21" opacity=".78"/><line x1="${L}" y1="${y}" x2="${nktX}" y2="${y}" stroke="#7597ef" stroke-width="3"/><line x1="${nktX}" y1="12" x2="${nktX}" y2="28" stroke="#9fb5f1" stroke-width="2"/>`;for(const p of M.points){const px=x(p.depth),muted=ball&&p.depth>ball.depth,color=muted?'#66736e':'#c5e77b';markup+=`<line x1="${px}" y1="10" x2="${px}" y2="30" stroke="${color}" stroke-width="2"/><circle cx="${px}" cy="${y}" r="3.5" fill="${color}" stroke="#29343a" stroke-width="1.5"/>`;}if(ball)markup+=`<circle cx="${ballX}" cy="${y}" r="7" fill="#ef8058" stroke="#ffd0bf" stroke-width="2"/>`;E.miniWell.setAttribute('viewBox',`0 0 ${w} ${h}`);E.miniWell.innerHTML=markup;}
@@ -133,7 +133,18 @@
   const simulationOutputs={simNoise:v=>`${v}%`,simVelocity:v=>`${v} м/с`,simAttenuation:v=>`${v}%`,simPulse:v=>`${v} мс`};
   [E.simNoise,E.simVelocity,E.simAttenuation,E.simPulse].forEach(input=>input.addEventListener('input',()=>{input.parentElement.querySelector('output').value=simulationOutputs[input.id](input.value);redrawSimulation();}));
   E.simPort.addEventListener('change',redrawSimulation);
-  new IntersectionObserver(([entry])=>{const stuck=!entry.isIntersecting&&entry.boundingClientRect.top<0;E.wellHead.classList.toggle('is-stuck',stuck);if(stuck&&M)requestAnimationFrame(()=>{const test=M.tests[+E.select.value||0];drawMiniWell(M.points.find(p=>p.port===test.ballPort));});},{threshold:0}).observe(E.stickySentinel);
-  let resizeTimer;window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>M&&drawWell(),100);});
+  let stickyFrame=0;
+  function updateStickyState(){
+    stickyFrame=0;
+    const headerStuck=E.stickySentinel.getBoundingClientRect().top<0;
+    E.wellHead.classList.toggle('is-stuck',headerStuck);
+    const headRect=E.wellHead.getBoundingClientRect(),diagramRect=E.svg.getBoundingClientRect();
+    const wellStuck=headerStuck&&diagramRect.top+diagramRect.height/2<=headRect.bottom+20;
+    E.wellHead.classList.toggle('is-well-stuck',wellStuck);
+  }
+  function scheduleStickyState(){if(!stickyFrame)stickyFrame=requestAnimationFrame(updateStickyState);}
+  window.addEventListener('scroll',scheduleStickyState,{passive:true});
+  scheduleStickyState();
+  let resizeTimer;window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{if(M)drawWell();scheduleStickyState();},100);});
   initCatalog();
 })();
