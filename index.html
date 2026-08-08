@@ -9,8 +9,8 @@
 <body>
   <main>
     <section id="workspace">
-      <div class="card well-card">
-        <div class="well-head">
+      <div id="stickySentinel" aria-hidden="true"></div>
+      <div class="well-head" id="wellHead">
           <label>Скважина
             <select id="dataset"><option value="">Выберите скважину…</option><option value="upload">＋ Загрузить XLSX…</option></select>
           </label>
@@ -19,7 +19,8 @@
           </label>
           <span class="key-hint"><kbd>↑</kbd> предыдущее <kbd>↓</kbd> следующее</span>
           <div class="legend"><span><i class="p"></i> Перфорация / муфта</span><span><i class="n"></i> Конец НКТ</span><span><i class="b"></i> Шар</span><span><i class="m"></i> Изолированный участок</span></div>
-        </div>
+      </div>
+      <div class="card well-card">
         <div class="scroll"><svg id="diagram" viewBox="0 0 1200 300" aria-label="Схема скважины"><text x="600" y="150" text-anchor="middle" fill="#8da098" font-size="13">Выберите скважину, чтобы построить схему</text></svg></div>
       </div>
       <div class="cepstrum-card empty-chart"><button class="chart-head" type="button"><span class="chart-name"><b>Кепстр из XLSX</b><svg class="chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 10l5-5 5 5"/></svg></span><span id="chartMeta"></span></button><div id="chartEmpty" class="chart-empty">Сначала выберите скважину и испытание</div><svg id="cepstrum" aria-label="Кепстр из XLSX"></svg></div>

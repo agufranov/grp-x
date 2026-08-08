@@ -1,7 +1,7 @@
 (() => {
   'use strict';
   const $ = id => document.getElementById(id);
-  const E = { file:$('file'), dataset:$('dataset'), work:$('workspace'), select:$('select'), svg:$('diagram'), cep:$('cepstrum'), computed:$('computedCepstrum'), signal:$('signalGraph'), chartMeta:$('chartMeta'), chartEmpty:$('chartEmpty'), computedMeta:$('computedMeta'), computedEmpty:$('computedEmpty'), signalMeta:$('signalMeta'), signalEmpty:$('signalEmpty'), rows:$('rows'), summary:$('summary'), toast:$('toast') };
+  const E = { file:$('file'), dataset:$('dataset'), work:$('workspace'), wellHead:$('wellHead'), stickySentinel:$('stickySentinel'), select:$('select'), svg:$('diagram'), cep:$('cepstrum'), computed:$('computedCepstrum'), signal:$('signalGraph'), chartMeta:$('chartMeta'), chartEmpty:$('chartEmpty'), computedMeta:$('computedMeta'), computedEmpty:$('computedEmpty'), signalMeta:$('signalMeta'), signalEmpty:$('signalEmpty'), rows:$('rows'), summary:$('summary'), toast:$('toast') };
   let M;
   const txt = v => String(v ?? '').trim();
   const num = v => v == null || txt(v) === '' ? NaN : (typeof v === 'number' ? v : Number(txt(v).replace(',', '.')));
@@ -120,6 +120,7 @@
     if(next!==current){E.select.value=String(next);drawWell();}
   });
   document.addEventListener('click',event=>{const head=event.target.closest('.chart-head');if(!head)return;const card=head.closest('.cepstrum-card');card.classList.toggle('collapsed');if(!card.classList.contains('collapsed')&&M)requestAnimationFrame(()=>drawWell());});
+  new IntersectionObserver(([entry])=>E.wellHead.classList.toggle('is-stuck',!entry.isIntersecting&&entry.boundingClientRect.top<0),{threshold:0}).observe(E.stickySentinel);
   let resizeTimer;window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>M&&drawWell(),100);});
   initCatalog();
 })();
