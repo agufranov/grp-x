@@ -1,6 +1,8 @@
-.cepstrum-scale-target.is-panning{cursor:grabbing}
-.well-scale-target{cursor:ew-resize;touch-action:pan-y;user-select:none}
+.well-scale-target{cursor:grab;touch-action:pan-y;user-select:none}
 .mini-well.well-scale-target{pointer-events:auto}
+html.is-zoom-modifier .cepstrum-scale-target,
+html.is-zoom-modifier .well-scale-target{cursor:ew-resize}
+.cepstrum-scale-target.is-panning{cursor:grabbing}
 .well-scale-target.is-panning{cursor:grabbing}
 html.is-panning-cepstrum,
 html.is-panning-cepstrum *{cursor:grabbing!important;user-select:none!important}
