@@ -1,10 +1,12 @@
 (() => {
   'use strict';
   const $ = id => document.getElementById(id);
-  const E = { file:$('file'), dataset:$('dataset'), work:$('workspace'), wellHead:$('wellHead'), stickySentinel:$('stickySentinel'), miniWell:$('miniWell'), select:$('select'), svg:$('diagram'), cep:$('cepstrum'), computed:$('computedCepstrum'), signal:$('signalGraph'), chartMeta:$('chartMeta'), chartEmpty:$('chartEmpty'), computedMeta:$('computedMeta'), computedEmpty:$('computedEmpty'), signalMeta:$('signalMeta'), signalEmpty:$('signalEmpty'), simPort:$('simPort'), simNoise:$('simNoise'), simVelocity:$('simVelocity'), simAttenuation:$('simAttenuation'), simPulse:$('simPulse'), simSignal:$('simSignal'), simSignalMeta:$('simSignalMeta'), simSignalEmpty:$('simSignalEmpty'), simCepstrum:$('simCepstrum'), simCepstrumMeta:$('simCepstrumMeta'), simCepstrumEmpty:$('simCepstrumEmpty'), scaleTooltip:$('scaleTooltip'), rows:$('rows'), summary:$('summary'), toast:$('toast') };
+  const E = { file:$('file'), dataset:$('dataset'), work:$('workspace'), wellHead:$('wellHead'), stickySentinel:$('stickySentinel'), miniWell:$('miniWell'), select:$('select'), svg:$('diagram'), cep:$('cepstrum'), computed:$('computedCepstrum'), signal:$('signalGraph'), chartMeta:$('chartMeta'), chartEmpty:$('chartEmpty'), computedMeta:$('computedMeta'), computedEmpty:$('computedEmpty'), signalMeta:$('signalMeta'), signalEmpty:$('signalEmpty'), signalFilterControls:$('signalFilterControls'), filterStart:$('filterStart'), filterEnd:$('filterEnd'), filterLow:$('filterLow'), filterHigh:$('filterHigh'), filterStartOutput:$('filterStartOutput'), filterEndOutput:$('filterEndOutput'), filterLowOutput:$('filterLowOutput'), filterHighOutput:$('filterHighOutput'), filterAfterStop:$('filterAfterStop'), filterReset:$('filterReset'), simPort:$('simPort'), simNoise:$('simNoise'), simVelocity:$('simVelocity'), simAttenuation:$('simAttenuation'), simPulse:$('simPulse'), simSignal:$('simSignal'), simSignalMeta:$('simSignalMeta'), simSignalEmpty:$('simSignalEmpty'), simCepstrum:$('simCepstrum'), simCepstrumMeta:$('simCepstrumMeta'), simCepstrumEmpty:$('simCepstrumEmpty'), scaleTooltip:$('scaleTooltip'), rows:$('rows'), summary:$('summary'), toast:$('toast') };
   const WELL_GEOMETRY={height:155,top:20,bottom:175,axis:150,miniHeight:65,miniAxis:40,tickStart:125};
   const CEPSTRUM_SCALE_DEFAULT=1,CEPSTRUM_SCALE_MIN=.1,CEPSTRUM_SCALE_MAX=32,CEPSTRUM_PLOT_LEFT=62,CEPSTRUM_PLOT_RIGHT=20;
   const cepstrumScaleStates=new Map();
+  const signalAnalysisSettings=new Map();
+  let currentSignalAnalysis=null,analysisFrame=0,drawRevision=0;
   let M;
   const txt = v => String(v ?? '').trim();
   const num = v => v == null || txt(v) === '' ? NaN : (typeof v === 'number' ? v : Number(txt(v).replace(',', '.')));
@@ -61,6 +63,7 @@
   }
 
   async function drawWell() {
+    const revision=++drawRevision;
     const test=M.tests[+E.select.value||0], ball=M.points.find(p=>p.port===test.ballPort);
     const deepest=Math.max(...M.points.map(p=>p.depth),M.nkt), lo=0, hi=Math.ceil(deepest/500)*500;
     const w=Math.max(320,E.svg.clientWidth), h=WELL_GEOMETRY.height, y=WELL_GEOMETRY.axis, L=62, R=w-20, x=d=>L+d/hi*(R-L), nx=x(M.nkt), bx=ball?x(ball.depth):R+1;
@@ -68,7 +71,7 @@
     s+=`<rect x="${L}" y="136" width="${R-L}" height="28" rx="14" fill="url(#pipe)"/><rect x="${bx}" y="118" width="${Math.max(0,R-bx)}" height="64" fill="#10191d" opacity=".68"/><rect x="${bx}" y="118" width="${Math.max(0,R-bx)}" height="64" fill="url(#hatch)"/><line x1="${L}" y1="${y}" x2="${nx}" y2="${y}" stroke="#688df2" stroke-width="7"/><line x1="${nx}" y1="${WELL_GEOMETRY.tickStart}" x2="${nx}" y2="${WELL_GEOMETRY.bottom}" stroke="#86a3f5" stroke-width="4"/><circle cx="${nx}" cy="${y}" r="7" fill="#b9c9f7"/><text x="${nx}" y="103" text-anchor="middle" fill="#b9c9f7" font-size="13" font-weight="700">КОНЕЦ НКТ</text><text x="${nx}" y="119" text-anchor="middle" fill="#91a29c" font-size="11">${fmt(M.nkt)} м</text>`;
     M.points.forEach((p,i)=>{const px=x(p.depth),muted=ball&&p.depth>ball.depth,lower=i%2!==0,ly=lower?86:53,lend=lower?111:76,col=muted?'#68756f':'#c5e77b',tc=muted?'#7d8984':'#edf3ee';s+=`<line x1="${px}" y1="${WELL_GEOMETRY.tickStart}" x2="${px}" y2="${WELL_GEOMETRY.bottom}" stroke="${col}" stroke-width="3"/><circle cx="${px}" cy="${y}" r="8" fill="${col}" stroke="#29343a" stroke-width="3"/><line x1="${px}" y1="124" x2="${px}" y2="${lend}" stroke="#fff" stroke-opacity=".14"/><text x="${px}" y="${ly}" text-anchor="middle" fill="${tc}" font-size="13" font-weight="700">№ ${p.port}</text><text x="${px}" y="${ly+15}" text-anchor="middle" fill="#91a29c" font-size="10">${fmt(p.depth)} м</text>`;});
     if(ball){s+=`<circle cx="${bx}" cy="${y}" r="16" fill="#ef8058" stroke="#ffd0bf" stroke-width="3"/><circle cx="${bx-4}" cy="${y-4}" r="4" fill="#ffc2aa"/>`;}
-    E.svg.setAttribute('viewBox',`0 ${WELL_GEOMETRY.top} ${w} ${h}`); E.svg.style.minWidth='0'; E.svg.innerHTML=s;drawMiniWell(ball);drawSimulation(test,ball);scheduleStickyState();await drawCepstrum(test);
+    E.svg.setAttribute('viewBox',`0 ${WELL_GEOMETRY.top} ${w} ${h}`); E.svg.style.minWidth='0'; E.svg.innerHTML=s;drawMiniWell(ball);scheduleStickyState();const source=await drawCepstrum(test,revision);if(revision===drawRevision)drawSimulation(test,ball,source);
   }
 
   function drawMiniWell(ball){
@@ -93,9 +96,73 @@
   }
   function thin(data,limit=1800){if(data.length<=limit)return data;const out=[data[0]],buckets=Math.floor((limit-2)/2),step=(data.length-2)/buckets;for(let b=0;b<buckets;b++){const from=1+Math.floor(b*step),to=Math.min(data.length-1,1+Math.floor((b+1)*step));let low=data[from],high=data[from];for(let i=from+1;i<to;i++){if(data[i].y<low.y)low=data[i];if(data[i].y>high.y)high=data[i]}out.push(...(low.x<high.x?[low,high]:[high,low]));}out.push(data.at(-1));return out;}
   function fft(re,im,inverse=false){const n=re.length;for(let i=1,j=0;i<n;i++){let bit=n>>1;for(;j&bit;bit>>=1)j^=bit;j^=bit;if(i<j){[re[i],re[j]]=[re[j],re[i]];[im[i],im[j]]=[im[j],im[i]];}}for(let len=2;len<=n;len<<=1){const angle=(inverse?2:-2)*Math.PI/len,baseR=Math.cos(angle),baseI=Math.sin(angle);for(let i=0;i<n;i+=len){let wr=1,wi=0;for(let j=0;j<len/2;j++){const a=i+j,b=a+len/2,tr=re[b]*wr-im[b]*wi,ti=re[b]*wi+im[b]*wr;re[b]=re[a]-tr;im[b]=im[a]-ti;re[a]+=tr;im[a]+=ti;const next=wr*baseR-wi*baseI;wi=wr*baseI+wi*baseR;wr=next;}}}if(inverse)for(let i=0;i<n;i++){re[i]/=n;im[i]/=n;}}
-  function calculateCepstrum(source){if(source.length<4)return[];const sorted=source.map(p=>({x:num(p[0]),y:num(p[1])})).filter(p=>isNum(p.x)&&isNum(p.y)).sort((a,b)=>a.x-b.x),diffs=[];for(let i=1;i<sorted.length;i++)if(sorted[i].x>sorted[i-1].x)diffs.push(sorted[i].x-sorted[i-1].x);diffs.sort((a,b)=>a-b);let step=diffs[Math.floor(diffs.length*.1)]||1,xmin=sorted[0].x,xmax=sorted.at(-1).x;step=Math.max(step,(xmax-xmin)/16383);const count=Math.floor((xmax-xmin)/step)+1,uniform=new Float64Array(count);let cursor=0;for(let i=0;i<count;i++){const x=xmin+i*step;while(cursor+1<sorted.length&&sorted[cursor+1].x<x)cursor++;const a=sorted[cursor],b=sorted[Math.min(cursor+1,sorted.length-1)],t=b.x===a.x?0:(x-a.x)/(b.x-a.x);uniform[i]=a.y+t*(b.y-a.y);}let n=1;while(n<count)n<<=1;const re=new Float64Array(n),im=new Float64Array(n),mean=uniform.reduce((sum,v)=>sum+v,0)/count;for(let i=0;i<count;i++)re[i]=uniform[i]-mean;fft(re,im);for(let i=0;i<n;i++){re[i]=Math.log(Math.max(1e-12,Math.hypot(re[i],im[i])));im[i]=0;}fft(re,im,true);const result=[];for(let i=0;i<Math.floor(n/2);i++)result.push({x:i*step,y:re[i]});return result;}
+  function sortedSource(source){
+    const sorted=source.map(p=>Array.isArray(p)?{x:num(p[0]),y:num(p[1])}:{x:num(p.x),y:num(p.y)}).filter(p=>isNum(p.x)&&isNum(p.y)).sort((a,b)=>a.x-b.x),unique=[];
+    for(const point of sorted){const previous=unique.at(-1);if(previous&&previous.x===point.x)previous.y=point.y;else unique.push(point);}
+    return unique;
+  }
+  function median(values){if(!values.length)return NaN;const ordered=[...values].sort((a,b)=>a-b);return ordered[Math.floor(ordered.length/2)];}
+  function resampleSignal(source,start=-Infinity,end=Infinity){
+    const all=sortedSource(source),selected=all.filter(point=>point.x>=start&&point.x<=end);
+    if(selected.length<4)return null;
+    const diffs=[];for(let i=1;i<selected.length;i++)diffs.push(selected[i].x-selected[i-1].x);
+    const xmin=selected[0].x,xmax=selected.at(-1).x,span=xmax-xmin;
+    let step=median(diffs)||1;step=Math.max(step,span/16383);
+    const count=Math.floor(span/step)+1;if(count<4)return null;
+    const values=new Float64Array(count);let cursor=0;
+    for(let i=0;i<count;i++){const x=xmin+i*step;while(cursor+1<selected.length&&selected[cursor+1].x<x)cursor++;const a=selected[cursor],b=selected[Math.min(cursor+1,selected.length-1)],ratio=b.x===a.x?0:(x-a.x)/(b.x-a.x);values[i]=a.y+ratio*(b.y-a.y);}
+    return{xmin,xmax:xmin+(count-1)*step,step,values,sampleRate:1/step,nyquist:1/(2*step),points:selected};
+  }
+  function linearTrend(values){
+    const n=values.length,trend=new Float64Array(n);if(!n)return trend;
+    let sumX=0,sumY=0,sumXX=0,sumXY=0;
+    for(let i=0;i<n;i++){const x=n===1?0:i/(n-1);sumX+=x;sumY+=values[i];sumXX+=x*x;sumXY+=x*values[i];}
+    const denominator=n*sumXX-sumX*sumX,slope=denominator?(n*sumXY-sumX*sumY)/denominator:0,intercept=(sumY-slope*sumX)/n;
+    for(let i=0;i<n;i++)trend[i]=intercept+slope*(n===1?0:i/(n-1));return trend;
+  }
+  function zeroPhaseLowPass(values,cutoff,step){
+    if(!(cutoff>0)||values.length<3)return Float64Array.from(values);
+    const alpha=1-Math.exp(-2*Math.PI*cutoff*step),forward=new Float64Array(values.length),backward=new Float64Array(values.length);
+    forward[0]=values[0];for(let i=1;i<values.length;i++)forward[i]=forward[i-1]+alpha*(values[i]-forward[i-1]);
+    backward[values.length-1]=forward.at(-1);for(let i=values.length-2;i>=0;i--)backward[i]=backward[i+1]+alpha*(forward[i]-backward[i+1]);
+    return backward;
+  }
+  function tukeyWindow(values,alpha=.12){
+    const result=Float64Array.from(values),edge=alpha*(values.length-1)/2;if(!(edge>0))return result;
+    for(let i=0;i<values.length;i++){const distance=Math.min(i,values.length-1-i),weight=distance>=edge?1:.5*(1-Math.cos(Math.PI*distance/edge));result[i]*=weight;}
+    return result;
+  }
+  function cepstrumFromValues(values,step){
+    if(values.length<4)return[];let n=1;while(n<values.length)n<<=1;
+    const re=new Float64Array(n),im=new Float64Array(n),mean=values.reduce((sum,value)=>sum+value,0)/values.length;
+    for(let i=0;i<values.length;i++)re[i]=values[i]-mean;fft(re,im);
+    for(let i=0;i<n;i++){re[i]=Math.log(Math.max(1e-12,Math.hypot(re[i],im[i])));im[i]=0;}fft(re,im,true);
+    const result=[];for(let i=0;i<Math.floor(n/2);i++)result.push({x:i*step,y:re[i]});return result;
+  }
+  function analyzeSignal(source,{start=-Infinity,end=Infinity,low=0,high=Infinity}={}){
+    const grid=resampleSignal(source,start,end);if(!grid)return null;
+    const trend=linearTrend(grid.values),residual=new Float64Array(grid.values.length);
+    for(let i=0;i<residual.length;i++)residual[i]=grid.values[i]-trend[i];
+    let filtered=residual;
+    if(high<grid.nyquist*.995)filtered=zeroPhaseLowPass(filtered,high,grid.step);
+    if(low>0){const slow=zeroPhaseLowPass(filtered,low,grid.step),band=new Float64Array(filtered.length);for(let i=0;i<band.length;i++)band[i]=filtered[i]-slow[i];filtered=band;}
+    const display=Array.from(filtered,(value,i)=>[grid.xmin+i*grid.step,value+trend[i]]),windowed=tukeyWindow(filtered);
+    return{grid,display,cepstrum:cepstrumFromValues(windowed,grid.step)};
+  }
   function setGraphState(svg,empty,isEmpty,message){empty.textContent=message;empty.classList.toggle('hidden',!isEmpty);empty.parentElement.classList.toggle('empty-chart',isEmpty);if(isEmpty){svg.innerHTML='';const state=cepstrumScaleStates.get(svg);if(state){state.raw=[];state.options=null;}}}
-  function drawPlot(svg,raw,{robust=false,color='#1e6c5b'}={}){if(!raw.length)return;const scaleState=cepstrumScaleStates.get(svg);if(scaleState){scaleState.raw=raw;scaleState.options={robust,color};}const all=raw.map(p=>Array.isArray(p)?{x:num(p[0]),y:num(p[1])}:p).filter(p=>isNum(p.x)&&isNum(p.y)).sort((a,b)=>a.x-b.x);if(!all.length)return;const fullXmin=all[0].x,fullXmax=all.at(-1).x,scale=scaleState?.scale||CEPSTRUM_SCALE_DEFAULT,fullSpan=fullXmax-fullXmin||1,xmin=fullXmin,xmax=fullXmin+fullSpan/scale,lowerBound=value=>{let low=0,high=all.length;while(low<high){const middle=(low+high)>>1;if(all[middle].x<value)low=middle+1;else high=middle;}return low;},from=Math.max(0,lowerBound(xmin)-1),to=Math.min(all.length,lowerBound(xmax)+1),data=thin(all.slice(from,Math.max(from+1,to))),ys=all.map(p=>p.y),ordered=[...ys].sort((a,b)=>a-b),q=p=>ordered[Math.floor((ordered.length-1)*p)];let ymin=robust?q(.01):ordered[0],ymax=robust?q(.99):ordered.at(-1);if(ymax===ymin)ymax=ymin+1;const pad=(ymax-ymin)*.08;ymin-=pad;ymax+=pad;const w=Math.max(320,svg.clientWidth||svg.parentElement.clientWidth),h=280,L=CEPSTRUM_PLOT_LEFT,R=w-CEPSTRUM_PLOT_RIGHT,T=17,B=h-34,x=v=>L+(v-xmin)/(xmax-xmin||1)*(R-L),y=v=>B-(Math.max(ymin,Math.min(ymax,v))-ymin)/(ymax-ymin)*(B-T),clipId=`${svg.id}PlotClip`;let markup=`<defs><clipPath id="${clipId}"><rect x="${L}" y="${T}" width="${R-L}" height="${B-T}"/></clipPath></defs>`;for(let i=0;i<=5;i++){const v=xmin+(xmax-xmin)*i/5,px=x(v);markup+=`<line x1="${px}" y1="${T}" x2="${px}" y2="${B}" stroke="#17231f" stroke-opacity=".07"/><text x="${px}" y="${h-12}" text-anchor="middle" fill="#7c8781" font-size="9">${fmt(v)}</text>`;}for(let i=0;i<=4;i++){const v=ymin+(ymax-ymin)*i/4,py=y(v);markup+=`<line x1="${L}" y1="${py}" x2="${R}" y2="${py}" stroke="#17231f" stroke-opacity=".07"/><text x="${L-9}" y="${py+3}" text-anchor="end" fill="#7c8781" font-size="9">${fmt(v)}</text>`;}markup+=`<path d="${data.map((p,i)=>`${i?'L':'M'}${x(p.x).toFixed(2)},${y(p.y).toFixed(2)}`).join(' ')}" clip-path="url(#${clipId})" fill="none" stroke="${color}" stroke-width="1.3" vector-effect="non-scaling-stroke"/>`;svg.setAttribute('viewBox',`0 0 ${w} ${h}`);svg.innerHTML=markup;}
+  function drawPlot(svg,raw,{robust=false,color='#1e6c5b',overlay=null,overlayColor='#586acb'}={}){
+    if(!raw.length)return;const scaleState=cepstrumScaleStates.get(svg),options={robust,color,overlay,overlayColor};if(scaleState){scaleState.raw=raw;scaleState.options=options;}
+    const normalize=series=>series.map(p=>Array.isArray(p)?{x:num(p[0]),y:num(p[1])}:p).filter(p=>isNum(p.x)&&isNum(p.y)).sort((a,b)=>a.x-b.x),all=normalize(raw),overlayAll=overlay?.length?normalize(overlay):[];if(!all.length)return;
+    const fullXmin=all[0].x,fullXmax=all.at(-1).x,scale=scaleState?.scale||CEPSTRUM_SCALE_DEFAULT,fullSpan=fullXmax-fullXmin||1,xmin=fullXmin,xmax=fullXmin+fullSpan/scale;
+    const visible=series=>{const lowerBound=value=>{let low=0,high=series.length;while(low<high){const middle=(low+high)>>1;if(series[middle].x<value)low=middle+1;else high=middle;}return low;},from=Math.max(0,lowerBound(xmin)-1),to=Math.min(series.length,lowerBound(xmax)+1);return thin(series.slice(from,Math.max(from+1,to)));},data=visible(all),overlayData=overlayAll.length?visible(overlayAll):[];
+    const ordered=all.map(p=>p.y).sort((a,b)=>a-b),q=p=>ordered[Math.floor((ordered.length-1)*p)];let ymin=robust?q(.01):ordered[0],ymax=robust?q(.99):ordered.at(-1);if(ymax===ymin)ymax=ymin+1;const pad=(ymax-ymin)*.08;ymin-=pad;ymax+=pad;
+    const w=Math.max(320,svg.clientWidth||svg.parentElement.clientWidth),h=280,L=CEPSTRUM_PLOT_LEFT,R=w-CEPSTRUM_PLOT_RIGHT,T=17,B=h-34,x=value=>L+(value-xmin)/(xmax-xmin||1)*(R-L),y=value=>B-(Math.max(ymin,Math.min(ymax,value))-ymin)/(ymax-ymin)*(B-T),clipId=`${svg.id}PlotClip`,path=series=>series.map((point,i)=>`${i?'L':'M'}${x(point.x).toFixed(2)},${y(point.y).toFixed(2)}`).join(' ');
+    let markup=`<defs><clipPath id="${clipId}"><rect x="${L}" y="${T}" width="${R-L}" height="${B-T}"/></clipPath></defs>`;
+    for(let i=0;i<=5;i++){const value=xmin+(xmax-xmin)*i/5,px=x(value);markup+=`<line x1="${px}" y1="${T}" x2="${px}" y2="${B}" stroke="#17231f" stroke-opacity=".07"/><text x="${px}" y="${h-12}" text-anchor="middle" fill="#7c8781" font-size="9">${fmt(value)}</text>`;}
+    for(let i=0;i<=4;i++){const value=ymin+(ymax-ymin)*i/4,py=y(value);markup+=`<line x1="${L}" y1="${py}" x2="${R}" y2="${py}" stroke="#17231f" stroke-opacity=".07"/><text x="${L-9}" y="${py+3}" text-anchor="end" fill="#7c8781" font-size="9">${fmt(value)}</text>`;}
+    markup+=`<path d="${path(data)}" clip-path="url(#${clipId})" fill="none" stroke="${color}" stroke-opacity="${overlayData.length ? .26 : 1}" stroke-width="1.3" vector-effect="non-scaling-stroke"/>`;if(overlayData.length)markup+=`<path d="${path(overlayData)}" clip-path="url(#${clipId})" fill="none" stroke="${overlayColor}" stroke-width="1.5" vector-effect="non-scaling-stroke"/>`;
+    svg.setAttribute('viewBox',`0 0 ${w} ${h}`);svg.innerHTML=markup;
+  }
   function updateCepstrumScaleHeader(svg,state){const card=svg.closest('.cepstrum-card'),scaleControl=card.querySelector('.chart-scale'),changed=state.scale!==CEPSTRUM_SCALE_DEFAULT;scaleControl.hidden=!changed;card.querySelector('.chart-scale-value').textContent=changed?`×${state.scale.toLocaleString('ru-RU',{maximumFractionDigits:2})}`:'';}
   function scheduleCepstrumScaleRedraw(svg,state){if(state.frame)return;state.frame=requestAnimationFrame(()=>{state.frame=0;if(state.raw.length&&state.options)drawPlot(svg,state.raw,state.options);});}
   function setCepstrumScale(svg,state,value){if(!Number.isFinite(value))return;const scale=Math.max(CEPSTRUM_SCALE_MIN,Math.min(CEPSTRUM_SCALE_MAX,value));if(scale===state.scale)return;state.scale=scale;updateCepstrumScaleHeader(svg,state);scheduleCepstrumScaleRedraw(svg,state);}
@@ -104,19 +171,69 @@
   function showScaleTooltip(event){if(event.pointerType==='touch')return;positionScaleTooltip(event);E.scaleTooltip.classList.add('visible');E.scaleTooltip.setAttribute('aria-hidden','false');}
   function hideScaleTooltip(){E.scaleTooltip.classList.remove('visible');E.scaleTooltip.setAttribute('aria-hidden','true');}
   function bindCepstrumScale(svg){const state={scale:CEPSTRUM_SCALE_DEFAULT,raw:[],options:null,drag:null,frame:0};cepstrumScaleStates.set(svg,state);updateCepstrumScaleHeader(svg,state);svg.addEventListener('pointerenter',showScaleTooltip);svg.addEventListener('pointerdown',event=>{if(event.pointerType==='touch'||event.button!==0)return;const pointerFraction=cepstrumPointerFraction(svg,event);if(!(pointerFraction>0))return;event.preventDefault();showScaleTooltip(event);state.drag={pointerId:event.pointerId,anchorFraction:pointerFraction/state.scale};svg.setPointerCapture(event.pointerId);svg.classList.add('is-scaling');document.documentElement.classList.add('is-scaling-cepstrum');});svg.addEventListener('pointermove',event=>{showScaleTooltip(event);if(!state.drag||state.drag.pointerId!==event.pointerId)return;setCepstrumScale(svg,state,cepstrumPointerFraction(svg,event)/state.drag.anchorFraction);});svg.addEventListener('pointerleave',()=>{if(!state.drag)hideScaleTooltip();});svg.addEventListener('contextmenu',event=>{event.preventDefault();setCepstrumScale(svg,state,CEPSTRUM_SCALE_DEFAULT);});const finish=event=>{if(!state.drag||state.drag.pointerId!==event.pointerId)return;state.drag=null;svg.classList.remove('is-scaling');document.documentElement.classList.remove('is-scaling-cepstrum');if(svg.hasPointerCapture(event.pointerId))svg.releasePointerCapture(event.pointerId);if(!svg.matches(':hover'))hideScaleTooltip();};svg.addEventListener('pointerup',finish);svg.addEventListener('pointercancel',finish);svg.addEventListener('lostpointercapture',finish);}
-  async function drawCepstrum(test){
-    let bundle;try{bundle=await cepstrumFor(test);}catch(e){error(e.message);bundle=null;}
-    const stored=bundle?.data||[],source=bundle?.source||[],computed=calculateCepstrum(source);
+  function estimatePumpProfile(source){
+    const grid=resampleSignal(source);if(!grid)return null;
+    const smooth=zeroPhaseLowPass(grid.values,Math.min(.5,grid.nyquist*.25),grid.step),n=smooth.length,lag=Math.max(1,Math.round(.5/grid.step)),from=Math.max(lag,Math.floor(n*.08)),to=Math.min(n-lag-1,Math.floor(n*.75));
+    let stopIndex=from,bestDrop=Infinity;for(let i=from;i<=to;i++){const change=smooth[i+lag]-smooth[i-lag];if(change<bestDrop){bestDrop=change;stopIndex=i;}}
+    const preEnd=Math.max(lag,stopIndex-2*lag),preStart=Math.max(0,preEnd-Math.round(5/grid.step)),tailStart=Math.floor(n*.85),on=median(Array.from(smooth.slice(preStart,preEnd))),settled=median(Array.from(smooth.slice(tailStart))),range=Math.max(...smooth)-Math.min(...smooth),drop=on-settled;
+    if(!(drop>range*.2))return null;
+    const threshold=on-drop*.08,searchStart=Math.max(0,stopIndex-Math.round(5/grid.step));for(let i=searchStart;i<stopIndex;i++)if(smooth[i]<=threshold){stopIndex=i;break;}
+    const minEnd=Math.min(n-1,stopIndex+Math.round(12/grid.step));let minIndex=stopIndex;for(let i=stopIndex+1;i<=minEnd;i++)if(smooth[i]<smooth[minIndex])minIndex=i;
+    const reboundStart=Math.min(n-1,minIndex+Math.round(.5/grid.step)),reboundEnd=Math.min(n-1,minIndex+Math.round(14/grid.step));let reboundIndex=reboundStart;for(let i=reboundStart+1;i<=reboundEnd;i++)if(smooth[i]>smooth[reboundIndex])reboundIndex=i;
+    return{start:grid.xmin,end:grid.xmax,stop:grid.xmin+stopIndex*grid.step,minimumTime:grid.xmin+minIndex*grid.step,reboundTime:grid.xmin+reboundIndex*grid.step,on,settled,minimum:smooth[minIndex],rebound:smooth[reboundIndex],step:grid.step};
+  }
+  function updateFilterOutputs(){
+    E.filterStartOutput.value=`${fmt(E.filterStart.value)} с`;E.filterEndOutput.value=`${fmt(E.filterEnd.value)} с`;E.filterLowOutput.value=`${fmt(E.filterLow.value)} Гц`;E.filterHighOutput.value=`${fmt(E.filterHigh.value)} Гц`;
+  }
+  function syncFilterControls(){
+    if(!currentSignalAnalysis)return;const {settings,bounds}=currentSignalAnalysis,timeStep=bounds.timeStep,freqStep=bounds.freqStep;
+    for(const input of [E.filterStart,E.filterEnd]){input.min=String(bounds.xmin);input.max=String(bounds.xmax);input.step=String(timeStep);}
+    for(const input of [E.filterLow,E.filterHigh]){input.min='0';input.max=String(bounds.nyquist);input.step=String(freqStep);}
+    E.filterStart.value=String(settings.start);E.filterEnd.value=String(settings.end);E.filterLow.value=String(settings.low);E.filterHigh.value=String(settings.high);updateFilterOutputs();
+  }
+  function renderSignalAnalysis(){
+    analysisFrame=0;if(!currentSignalAnalysis)return;const {source,settings,bounds}=currentSignalAnalysis,result=analyzeSignal(source,settings),active=settings.start>bounds.xmin+bounds.timeStep||settings.end<bounds.xmax-bounds.timeStep||settings.low>bounds.freqStep/2||settings.high<bounds.nyquist-bounds.freqStep/2;
+    if(!result){setGraphState(E.computed,E.computedEmpty,true,'Недостаточно данных в выбранном окне');return;}
+    const computed=result.cepstrum,band=`${fmt(settings.low)}–${fmt(settings.high)} Гц`,windowText=`${fmt(result.grid.xmin)}–${fmt(result.grid.xmax)} с`;
+    setGraphState(E.computed,E.computedEmpty,!computed.length,'Недостаточно данных для расчёта кепстра');E.computedMeta.textContent=computed.length?`${computed.length.toLocaleString('ru-RU')} точек · ${windowText} · ${band}`:'нет исходного сигнала';if(computed.length)drawPlot(E.computed,computed,{robust:true,color:'#586acb'});
+    setGraphState(E.signal,E.signalEmpty,false,'');E.signalMeta.textContent=`${source.length.toLocaleString('ru-RU')} точек${active?' · обработка '+windowText+' · '+band:''}`;drawPlot(E.signal,source,{color:'#9b633c',overlay:active?result.display:null,overlayColor:'#586acb'});
+    currentSignalAnalysis.result=result;
+  }
+  function scheduleSignalAnalysis(){if(!analysisFrame)analysisFrame=requestAnimationFrame(renderSignalAnalysis);}
+  function configureSignalAnalysis(test,source){
+    if(!source.length){currentSignalAnalysis=null;E.signalFilterControls.hidden=true;setGraphState(E.computed,E.computedEmpty,true,'Недостаточно данных для расчёта кепстра');E.computedMeta.textContent='нет исходного сигнала';setGraphState(E.signal,E.signalEmpty,true,'Для этого испытания исходный сигнал не найден');E.signalMeta.textContent='нет листа';return;}
+    const grid=resampleSignal(source),profile=estimatePumpProfile(source);if(!grid){currentSignalAnalysis=null;E.signalFilterControls.hidden=true;return;}
+    const key=`${M.file}:${test.id}`,duration=grid.xmax-grid.xmin,bounds={xmin:grid.xmin,xmax:grid.xmax,nyquist:grid.nyquist,timeStep:Math.max(grid.step,duration/1000),freqStep:Math.max(.01,grid.nyquist/200)};let settings=signalAnalysisSettings.get(key);
+    if(!settings)settings={start:bounds.xmin,end:bounds.xmax,low:0,high:bounds.nyquist};
+    const minWindow=bounds.timeStep*8;settings.start=Math.max(bounds.xmin,Math.min(settings.start,bounds.xmax-minWindow));settings.end=Math.min(bounds.xmax,Math.max(settings.end,settings.start+minWindow));settings.low=Math.max(0,Math.min(settings.low,bounds.nyquist-bounds.freqStep));settings.high=Math.max(settings.low+bounds.freqStep,Math.min(settings.high,bounds.nyquist));signalAnalysisSettings.set(key,settings);
+    currentSignalAnalysis={key,test,source,settings,bounds,profile,result:null};E.signalFilterControls.hidden=false;syncFilterControls();renderSignalAnalysis();
+  }
+  async function drawCepstrum(test,revision){
+    let bundle;try{bundle=await cepstrumFor(test);}catch(e){error(e.message);bundle=null;}if(revision!==drawRevision)return null;
+    const stored=bundle?.data||[],source=bundle?.source||[];
     setGraphState(E.cep,E.chartEmpty,!stored.length,'Для этого испытания лист с кепстром не найден');E.chartMeta.textContent=stored.length?`лист «${bundle.name}» · ${stored.length.toLocaleString('ru-RU')} точек · Y 1–99%`:'нет листа';if(stored.length)drawPlot(E.cep,stored,{robust:true,color:'#1e6c5b'});
-    setGraphState(E.computed,E.computedEmpty,!computed.length,'Недостаточно данных для расчёта кепстра');E.computedMeta.textContent=computed.length?`${computed.length.toLocaleString('ru-RU')} точек · IFFT(log|FFT|) · Y 1–99%`:'нет исходного сигнала';if(computed.length)drawPlot(E.computed,computed,{robust:true,color:'#586acb'});
-    setGraphState(E.signal,E.signalEmpty,!source.length,'Для этого испытания исходный сигнал не найден');E.signalMeta.textContent=source.length?`${source.length.toLocaleString('ru-RU')} точек`:'нет листа';if(source.length)drawPlot(E.signal,source,{color:'#9b633c'});
+    configureSignalAnalysis(test,source);return source;
   }
 
   function syncSimulationPorts(test,ball){const endDepth=ball?.depth??Math.max(...M.points.map(p=>p.depth)),available=M.points.filter(p=>p.depth<=endDepth).sort((a,b)=>a.port-b.port),key=`${M.file}:${test.id}:${ball?.port??'open'}`;if(E.simPort.dataset.key!==key){E.simPort.innerHTML=available.map(p=>`<option value="${p.port}">Порт ${p.port} · ${fmt(p.depth)} м</option>`).join('');const preferred=ball?.port??available.reduce((best,p)=>p.depth>best.depth?p:best,available[0]).port;E.simPort.value=String(preferred);E.simPort.dataset.key=key;}E.simPort.disabled=false;return available;}
   function seededRandom(seedText){let seed=2166136261;for(const ch of seedText){seed^=ch.charCodeAt(0);seed=Math.imul(seed,16777619);}return()=>{seed+=0x6D2B79F5;let t=seed;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296;};}
   function addRicker(values,sampleRate,time,width,amplitude){const radius=Math.ceil(width*4*sampleRate),center=Math.round(time*sampleRate);for(let i=Math.max(0,center-radius);i<=Math.min(values.length-1,center+radius);i++){const z=Math.PI*((i/sampleRate)-time)/width,z2=z*z;values[i]+=amplitude*(1-2*z2)*Math.exp(-z2);}}
-  function simulateSignal(test,ball){const velocity=+E.simVelocity.value,noise=+E.simNoise.value/100,attenuation=.02+(+E.simAttenuation.value/100)*.22,width=+E.simPulse.value/1000,endDepth=ball?.depth??Math.max(...M.points.map(p=>p.depth)),ports=syncSimulationPorts(test,ball),activePort=+E.simPort.value,sampleRate=512,duration=2*endDepth/velocity+.6,count=Math.ceil(duration*sampleRate),values=new Float64Array(count),reflectors=[];reflectors.push({depth:0,amplitude:1.25,time:.08,type:'устье'});for(const p of ports)reflectors.push({depth:p.depth,amplitude:p.port===activePort?-.9:.14,type:p.port===activePort?'активная перфорация':'муфта'});if(M.nkt<=endDepth)reflectors.push({depth:M.nkt,amplitude:-.52,type:'конец НКТ'});if(ball)reflectors.push({depth:ball.depth,amplitude:1.15,type:'шар'});for(const r of reflectors){const time=r.time??2*r.depth/velocity,pathKm=2*r.depth/1000,amplitude=r.amplitude*Math.exp(-attenuation*pathKm);addRicker(values,sampleRate,time,width,amplitude);}const random=seededRandom(`${M.file}:${test.id}:${activePort}`);let colored=0;for(let i=0;i<count;i++){const white=(random()+random()+random()+random()-2)*.5;colored=colored*.82+white*.18;values[i]+=noise*(white*.09+colored*.11);}const source=Array.from(values,(y,i)=>[i/sampleRate,y]);return{source,sampleRate,duration,reflectors:reflectors.length,activePort,endDepth};}
-  function drawSimulation(test,ball){const simulation=simulateSignal(test,ball),cepstrum=calculateCepstrum(simulation.source);setGraphState(E.simSignal,E.simSignalEmpty,false,'');setGraphState(E.simCepstrum,E.simCepstrumEmpty,false,'');E.simSignalMeta.textContent=`${simulation.source.length.toLocaleString('ru-RU')} отсчётов · ${simulation.sampleRate} Гц · ${simulation.reflectors} отражателей`;E.simCepstrumMeta.textContent=`${cepstrum.length.toLocaleString('ru-RU')} точек · порт ${simulation.activePort} · Y 1–99%`;drawPlot(E.simSignal,simulation.source,{color:'#c25a45'});drawPlot(E.simCepstrum,cepstrum,{robust:true,color:'#7256b5'});}
+  function defaultPumpProfile(endDepth,velocity){const travel=2*endDepth/velocity,stop=12,minimumTime=stop+Math.max(2.5,travel*.45),reboundTime=minimumTime+Math.max(3,travel*.65);return{start:0,end:Math.max(48,reboundTime+24),stop,minimumTime,reboundTime,on:1,settled:.42,minimum:.23,rebound:.51,step:1/256};}
+  function simulateSignal(test,ball,measuredSource=[]){
+    const velocity=+E.simVelocity.value,noise=+E.simNoise.value/100,attenuation=.02+(+E.simAttenuation.value/100)*.22,width=+E.simPulse.value/1000,endDepth=ball?.depth??Math.max(...M.points.map(p=>p.depth)),ports=syncSimulationPorts(test,ball),activePort=+E.simPort.value,sampleRate=256,measuredProfile=estimatePumpProfile(measuredSource),profile=measuredProfile||defaultPumpProfile(endDepth,velocity),duration=Math.max(1,profile.end-profile.start),count=Math.ceil(duration*sampleRate)+1,values=new Float64Array(count),reflectors=[];
+    const minimumTime=Math.max(profile.stop+.5,profile.minimumTime),reboundTime=Math.max(minimumTime+.5,profile.reboundTime),fastTau=Math.max(.7,(reboundTime-minimumTime)/2.4),slowTau=Math.max(8,(profile.end-reboundTime)/2.2),reboundExcess=Math.max(0,profile.rebound-profile.settled),slowAmplitude=reboundExcess*1.55,fastAmplitude=profile.settled+slowAmplitude-profile.minimum;
+    for(let i=0;i<count;i++){
+      const time=profile.start+i/sampleRate;
+      if(time<=profile.stop)values[i]=profile.on;
+      else if(time<minimumTime){const phase=(time-profile.stop)/(minimumTime-profile.stop),smooth=phase*phase*(3-2*phase);values[i]=profile.on+(profile.minimum-profile.on)*smooth;}
+      else{const elapsed=time-minimumTime;values[i]=profile.settled+slowAmplitude*Math.exp(-elapsed/slowTau)-fastAmplitude*Math.exp(-elapsed/fastTau);}
+    }
+    reflectors.push({depth:0,amplitude:-1.25,delay:.08,type:'фронт остановки'});for(const point of ports)reflectors.push({depth:point.depth,amplitude:point.port===activePort?-.9:.14,type:point.port===activePort?'активная перфорация':'муфта'});if(M.nkt<=endDepth)reflectors.push({depth:M.nkt,amplitude:-.52,type:'конец НКТ'});if(ball)reflectors.push({depth:ball.depth,amplitude:1.15,type:'шар'});
+    const pressureSpan=Math.max(1,Math.abs(profile.on-profile.minimum));for(const reflector of reflectors){const delay=reflector.delay??2*reflector.depth/velocity,pathKm=2*reflector.depth/1000,amplitude=reflector.amplitude*pressureSpan*.025*Math.exp(-attenuation*pathKm);addRicker(values,sampleRate,profile.stop-profile.start+delay,width,amplitude);}
+    const random=seededRandom(`${M.file}:${test.id}:${activePort}`);let colored=0;for(let i=0;i<count;i++){const white=(random()+random()+random()+random()-2)*.5;colored=colored*.82+white*.18;const time=profile.start+i/sampleRate,pumpFactor=time<profile.stop?1:.45;values[i]+=noise*pressureSpan*.06*pumpFactor*(white*.65+colored*.35);}
+    const source=Array.from(values,(value,i)=>[profile.start+i/sampleRate,value]);return{source,sampleRate,duration,reflectors:reflectors.length,activePort,endDepth,stopTime:profile.stop,endTime:profile.end,fitted:Boolean(measuredProfile)};
+  }
+  function drawSimulation(test,ball,measuredSource=[]){const simulation=simulateSignal(test,ball,measuredSource),analysis=analyzeSignal(simulation.source,{start:simulation.stopTime,end:simulation.endTime}),cepstrum=analysis?.cepstrum||[];setGraphState(E.simSignal,E.simSignalEmpty,false,'');setGraphState(E.simCepstrum,E.simCepstrumEmpty,!cepstrum.length,'Недостаточно данных для расчёта кепстра');E.simSignalMeta.textContent=`${simulation.source.length.toLocaleString('ru-RU')} отсчётов · остановка ${fmt(simulation.stopTime)} с · ${simulation.fitted?'профиль по данным':'типовой профиль'}`;E.simCepstrumMeta.textContent=`${cepstrum.length.toLocaleString('ru-RU')} точек · после остановки · порт ${simulation.activePort} · Y 1–99%`;drawPlot(E.simSignal,simulation.source,{color:'#c25a45'});if(cepstrum.length)drawPlot(E.simCepstrum,cepstrum,{robust:true,color:'#7256b5'});}
 
   async function loadDataset(item){
     if(!item)return;
@@ -146,9 +263,20 @@
     if(next!==current){E.select.value=String(next);drawWell();}
   });
   document.querySelectorAll('.cepstrum-scale-target').forEach(bindCepstrumScale);
-  document.addEventListener('click',event=>{const reset=event.target.closest('.chart-scale-reset');if(reset){const svg=reset.closest('.cepstrum-card').querySelector('.cepstrum-scale-target'),state=cepstrumScaleStates.get(svg);setCepstrumScale(svg,state,CEPSTRUM_SCALE_DEFAULT);return;}const head=event.target.closest('.chart-head');if(!head||event.target.closest('.chart-scale'))return;const card=head.closest('.cepstrum-card'),collapsed=card.classList.toggle('collapsed');head.querySelector('.chart-toggle').setAttribute('aria-expanded',String(!collapsed));if(!collapsed&&M)requestAnimationFrame(()=>drawWell());});
+  document.addEventListener('click',event=>{const reset=event.target.closest('.chart-scale-reset');if(reset){const svg=reset.closest('.cepstrum-card').querySelector('.cepstrum-scale-target'),state=cepstrumScaleStates.get(svg);setCepstrumScale(svg,state,CEPSTRUM_SCALE_DEFAULT);return;}const head=event.target.closest('.chart-head');if(!head||event.target.closest('.chart-scale')||event.target.closest('.signal-filter-controls'))return;const card=head.closest('.cepstrum-card'),collapsed=card.classList.toggle('collapsed');head.querySelector('.chart-toggle').setAttribute('aria-expanded',String(!collapsed));if(!collapsed&&M)requestAnimationFrame(()=>drawWell());});
   const cursorGuide=$('cursorGuide');let guideFrame=0,guideX=-10;window.addEventListener('pointermove',event=>{if(event.pointerType==='touch')return;guideX=event.clientX;cursorGuide.classList.add('visible');if(!guideFrame)guideFrame=requestAnimationFrame(()=>{cursorGuide.style.transform=`translate3d(${guideX}px,0,0)`;guideFrame=0;});},{passive:true});document.documentElement.addEventListener('pointerleave',()=>{cursorGuide.classList.remove('visible');hideScaleTooltip();});window.addEventListener('blur',()=>{cursorGuide.classList.remove('visible');hideScaleTooltip();});
-  const redrawSimulation=()=>{if(!M)return;const test=M.tests[+E.select.value||0],ball=M.points.find(p=>p.port===test.ballPort);drawSimulation(test,ball);};
+  function changeSignalFilter(input){
+    if(!currentSignalAnalysis)return;const {settings,bounds}=currentSignalAnalysis,value=+input.value,minWindow=bounds.timeStep*8,minBand=bounds.freqStep;
+    if(input===E.filterStart)settings.start=Math.max(bounds.xmin,Math.min(value,settings.end-minWindow));
+    else if(input===E.filterEnd)settings.end=Math.min(bounds.xmax,Math.max(value,settings.start+minWindow));
+    else if(input===E.filterLow)settings.low=Math.max(0,Math.min(value,settings.high-minBand));
+    else if(input===E.filterHigh)settings.high=Math.min(bounds.nyquist,Math.max(value,settings.low+minBand));
+    signalAnalysisSettings.set(currentSignalAnalysis.key,settings);syncFilterControls();scheduleSignalAnalysis();
+  }
+  [E.filterStart,E.filterEnd,E.filterLow,E.filterHigh].forEach(input=>input.addEventListener('input',()=>changeSignalFilter(input)));
+  E.filterAfterStop.addEventListener('click',()=>{if(!currentSignalAnalysis)return;const {settings,bounds,profile}=currentSignalAnalysis;settings.start=Math.max(bounds.xmin,Math.min(profile?.stop??bounds.xmin,bounds.xmax-bounds.timeStep*8));settings.end=bounds.xmax;signalAnalysisSettings.set(currentSignalAnalysis.key,settings);syncFilterControls();scheduleSignalAnalysis();});
+  E.filterReset.addEventListener('click',()=>{if(!currentSignalAnalysis)return;const {settings,bounds}=currentSignalAnalysis;Object.assign(settings,{start:bounds.xmin,end:bounds.xmax,low:0,high:bounds.nyquist});signalAnalysisSettings.set(currentSignalAnalysis.key,settings);syncFilterControls();scheduleSignalAnalysis();});
+  const redrawSimulation=()=>{if(!M)return;const test=M.tests[+E.select.value||0],ball=M.points.find(p=>p.port===test.ballPort),key=`${M.file}:${test.id}`,source=currentSignalAnalysis?.key===key?currentSignalAnalysis.source:[];drawSimulation(test,ball,source);};
   const simulationOutputs={simNoise:v=>`${v}%`,simVelocity:v=>`${v} м/с`,simAttenuation:v=>`${v}%`,simPulse:v=>`${v} мс`};
   [E.simNoise,E.simVelocity,E.simAttenuation,E.simPulse].forEach(input=>input.addEventListener('input',()=>{input.parentElement.querySelector('output').value=simulationOutputs[input.id](input.value);redrawSimulation();}));
   E.simPort.addEventListener('change',redrawSimulation);
