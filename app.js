@@ -1,9 +1,10 @@
 (() => {
   'use strict';
   const $ = id => document.getElementById(id);
-  const E = { file:$('file'), dataset:$('dataset'), work:$('workspace'), wellHead:$('wellHead'), stickySentinel:$('stickySentinel'), miniWell:$('miniWell'), select:$('select'), svg:$('diagram'), cep:$('cepstrum'), computed:$('computedCepstrum'), signal:$('signalGraph'), computedSignal:$('computedSignal'), chartMeta:$('chartMeta'), chartEmpty:$('chartEmpty'), computedMeta:$('computedMeta'), computedEmpty:$('computedEmpty'), signalMeta:$('signalMeta'), signalEmpty:$('signalEmpty'), computedSignalMeta:$('computedSignalMeta'), computedSignalEmpty:$('computedSignalEmpty'), signalFilterControls:$('signalFilterControls'), filterStart:$('filterStart'), filterEnd:$('filterEnd'), filterLow:$('filterLow'), filterHigh:$('filterHigh'), filterStartOutput:$('filterStartOutput'), filterEndOutput:$('filterEndOutput'), filterLowOutput:$('filterLowOutput'), filterHighOutput:$('filterHighOutput'), filterAfterStop:$('filterAfterStop'), filterReset:$('filterReset'), simPort:$('simPort'), simNoise:$('simNoise'), simVelocity:$('simVelocity'), simAttenuation:$('simAttenuation'), simPulse:$('simPulse'), simSignal:$('simSignal'), simSignalMeta:$('simSignalMeta'), simSignalEmpty:$('simSignalEmpty'), simCepstrum:$('simCepstrum'), simCepstrumMeta:$('simCepstrumMeta'), simCepstrumEmpty:$('simCepstrumEmpty'), scaleTooltip:$('scaleTooltip'), rows:$('rows'), summary:$('summary'), toast:$('toast') };
+  const E = { file:$('file'), dataset:$('dataset'), work:$('workspace'), wellHead:$('wellHead'), stickySentinel:$('stickySentinel'), miniWell:$('miniWell'), select:$('select'), svg:$('diagram'), cep:$('cepstrum'), computed:$('computedCepstrum'), signal:$('signalGraph'), computedSignal:$('computedSignal'), chartMeta:$('chartMeta'), chartEmpty:$('chartEmpty'), computedMeta:$('computedMeta'), computedEmpty:$('computedEmpty'), signalMeta:$('signalMeta'), signalEmpty:$('signalEmpty'), computedSignalMeta:$('computedSignalMeta'), computedSignalEmpty:$('computedSignalEmpty'), signalFilterControls:$('signalFilterControls'), filterStart:$('filterStart'), filterEnd:$('filterEnd'), filterLow:$('filterLow'), filterHigh:$('filterHigh'), filterInterpolation:$('filterInterpolation'), filterStartOutput:$('filterStartOutput'), filterEndOutput:$('filterEndOutput'), filterLowOutput:$('filterLowOutput'), filterHighOutput:$('filterHighOutput'), filterAfterStop:$('filterAfterStop'), filterReset:$('filterReset'), simPort:$('simPort'), simNoise:$('simNoise'), simVelocity:$('simVelocity'), simAttenuation:$('simAttenuation'), simPulse:$('simPulse'), simSignal:$('simSignal'), simSignalMeta:$('simSignalMeta'), simSignalEmpty:$('simSignalEmpty'), simCepstrum:$('simCepstrum'), simCepstrumMeta:$('simCepstrumMeta'), simCepstrumEmpty:$('simCepstrumEmpty'), scaleTooltip:$('scaleTooltip'), rows:$('rows'), summary:$('summary'), toast:$('toast') };
   const WELL_GEOMETRY={height:155,top:20,bottom:175,axis:150,miniHeight:65,miniAxis:40,tickStart:125};
   const CEPSTRUM_SCALE_DEFAULT=1,CEPSTRUM_SCALE_MIN=.1,CEPSTRUM_SCALE_MAX=32,CEPSTRUM_PLOT_LEFT=62,CEPSTRUM_PLOT_RIGHT=20;
+  const INTERPOLATION=globalThis.GrpInterpolation,INTERPOLATION_DEFAULT=INTERPOLATION.DEFAULT_METHOD,INTERPOLATION_LABELS={pchip:'монотонный сплайн',linear:'линейная интерполяция'};
   const cepstrumScaleStates=new Map();
   const signalAnalysisSettings=new Map();
   let currentSignalAnalysis=null,analysisFrame=0,drawRevision=0;
@@ -102,16 +103,16 @@
     return unique;
   }
   function median(values){if(!values.length)return NaN;const ordered=[...values].sort((a,b)=>a-b);return ordered[Math.floor(ordered.length/2)];}
-  function resampleSignal(source,start=-Infinity,end=Infinity){
+  function resampleSignal(source,start=-Infinity,end=Infinity,interpolation=INTERPOLATION_DEFAULT){
     const all=sortedSource(source),selected=all.filter(point=>point.x>=start&&point.x<=end);
     if(selected.length<4)return null;
     const diffs=[];for(let i=1;i<selected.length;i++)diffs.push(selected[i].x-selected[i-1].x);
     const xmin=selected[0].x,xmax=selected.at(-1).x,span=xmax-xmin;
     let step=median(diffs)||1;step=Math.max(step,span/16383);
     const count=Math.floor(span/step)+1;if(count<4)return null;
-    const values=new Float64Array(count);let cursor=0;
-    for(let i=0;i<count;i++){const x=xmin+i*step;while(cursor+1<selected.length&&selected[cursor+1].x<x)cursor++;const a=selected[cursor],b=selected[Math.min(cursor+1,selected.length-1)],ratio=b.x===a.x?0:(x-a.x)/(b.x-a.x);values[i]=a.y+ratio*(b.y-a.y);}
-    return{xmin,xmax:xmin+(count-1)*step,step,values,sampleRate:1/step,nyquist:1/(2*step),points:selected};
+    const values=new Float64Array(count),interpolate=INTERPOLATION.createInterpolator(selected,interpolation);let cursor=0;
+    for(let i=0;i<count;i++){const x=xmin+i*step;while(cursor+1<selected.length&&selected[cursor+1].x<x)cursor++;values[i]=interpolate(x,cursor);}
+    return{xmin,xmax:xmin+(count-1)*step,step,values,sampleRate:1/step,nyquist:1/(2*step),points:selected,interpolation};
   }
   function linearTrend(values){
     const n=values.length,trend=new Float64Array(n);if(!n)return trend;
@@ -139,8 +140,8 @@
     for(let i=0;i<n;i++){re[i]=Math.log(Math.max(1e-12,Math.hypot(re[i],im[i])));im[i]=0;}fft(re,im,true);
     const result=[];for(let i=0;i<Math.floor(n/2);i++)result.push({x:i*step,y:re[i]});return result;
   }
-  function analyzeSignal(source,{start=-Infinity,end=Infinity,low=0,high=Infinity}={}){
-    const grid=resampleSignal(source,start,end);if(!grid)return null;
+  function analyzeSignal(source,{start=-Infinity,end=Infinity,low=0,high=Infinity,interpolation=INTERPOLATION_DEFAULT}={}){
+    const grid=resampleSignal(source,start,end,interpolation);if(!grid)return null;
     const trend=linearTrend(grid.values),residual=new Float64Array(grid.values.length);
     for(let i=0;i<residual.length;i++)residual[i]=grid.values[i]-trend[i];
     let filtered=residual;
@@ -189,14 +190,14 @@
     if(!currentSignalAnalysis)return;const {settings,bounds}=currentSignalAnalysis,timeStep=bounds.timeStep,freqStep=bounds.freqStep;
     for(const input of [E.filterStart,E.filterEnd]){input.min=String(bounds.xmin);input.max=String(bounds.xmax);input.step=String(timeStep);}
     for(const input of [E.filterLow,E.filterHigh]){input.min='0';input.max=String(bounds.nyquist);input.step=String(freqStep);}
-    E.filterStart.value=String(settings.start);E.filterEnd.value=String(settings.end);E.filterLow.value=String(settings.low);E.filterHigh.value=String(settings.high);updateFilterOutputs();
+    E.filterStart.value=String(settings.start);E.filterEnd.value=String(settings.end);E.filterLow.value=String(settings.low);E.filterHigh.value=String(settings.high);E.filterInterpolation.value=settings.interpolation;updateFilterOutputs();
   }
   function renderSignalAnalysis(){
     analysisFrame=0;if(!currentSignalAnalysis)return;const {source,settings}=currentSignalAnalysis,result=analyzeSignal(source,settings);
     if(!result){setGraphState(E.computed,E.computedEmpty,true,'Недостаточно данных в выбранном окне');E.computedMeta.textContent='недостаточно данных';setGraphState(E.computedSignal,E.computedSignalEmpty,true,'Недостаточно данных в выбранном окне');E.computedSignalMeta.textContent='недостаточно данных';return;}
-    const computed=result.cepstrum,band=`${fmt(settings.low)}–${fmt(settings.high)} Гц`,windowText=`${fmt(result.grid.xmin)}–${fmt(result.grid.xmax)} с`;
-    setGraphState(E.computed,E.computedEmpty,!computed.length,'Недостаточно данных для расчёта кепстра');E.computedMeta.textContent=computed.length?`${computed.length.toLocaleString('ru-RU')} точек · ${windowText} · ${band}`:'нет исходного сигнала';if(computed.length)drawPlot(E.computed,computed,{robust:true,color:'#586acb'});
-    setGraphState(E.computedSignal,E.computedSignalEmpty,false,'');E.computedSignalMeta.textContent=`${result.processed.length.toLocaleString('ru-RU')} отсчётов · ${windowText} · ${band}`;drawPlot(E.computedSignal,result.processed,{color:'#586acb'});
+    const computed=result.cepstrum,band=`${fmt(settings.low)}–${fmt(settings.high)} Гц`,windowText=`${fmt(result.grid.xmin)}–${fmt(result.grid.xmax)} с`,interpolation=INTERPOLATION_LABELS[settings.interpolation];
+    setGraphState(E.computed,E.computedEmpty,!computed.length,'Недостаточно данных для расчёта кепстра');E.computedMeta.textContent=computed.length?`${computed.length.toLocaleString('ru-RU')} точек · ${windowText} · ${band} · ${interpolation}`:'нет исходного сигнала';if(computed.length)drawPlot(E.computed,computed,{robust:true,color:'#586acb'});
+    setGraphState(E.computedSignal,E.computedSignalEmpty,false,'');E.computedSignalMeta.textContent=`${result.processed.length.toLocaleString('ru-RU')} отсчётов · ${windowText} · ${band} · ${interpolation}`;drawPlot(E.computedSignal,result.processed,{color:'#586acb'});
     currentSignalAnalysis.result=result;
   }
   function scheduleSignalAnalysis(){if(!analysisFrame)analysisFrame=requestAnimationFrame(renderSignalAnalysis);}
@@ -205,8 +206,8 @@
     setGraphState(E.signal,E.signalEmpty,false,'');E.signalMeta.textContent=`${source.length.toLocaleString('ru-RU')} точек`;drawPlot(E.signal,source,{color:'#9b633c'});
     const grid=resampleSignal(source),profile=estimatePumpProfile(source);if(!grid){currentSignalAnalysis=null;E.signalFilterControls.hidden=true;setGraphState(E.computed,E.computedEmpty,true,'Недостаточно данных для расчёта кепстра');E.computedMeta.textContent='недостаточно данных';setGraphState(E.computedSignal,E.computedSignalEmpty,true,'Недостаточно данных для обработки сигнала');E.computedSignalMeta.textContent='недостаточно данных';return;}
     const key=`${M.file}:${test.id}`,duration=grid.xmax-grid.xmin,bounds={xmin:grid.xmin,xmax:grid.xmax,nyquist:grid.nyquist,timeStep:Math.max(grid.step,duration/1000),freqStep:Math.max(.01,grid.nyquist/200)};let settings=signalAnalysisSettings.get(key);
-    if(!settings)settings={start:bounds.xmin,end:bounds.xmax,low:0,high:bounds.nyquist};
-    const minWindow=bounds.timeStep*8;settings.start=Math.max(bounds.xmin,Math.min(settings.start,bounds.xmax-minWindow));settings.end=Math.min(bounds.xmax,Math.max(settings.end,settings.start+minWindow));settings.low=Math.max(0,Math.min(settings.low,bounds.nyquist-bounds.freqStep));settings.high=Math.max(settings.low+bounds.freqStep,Math.min(settings.high,bounds.nyquist));signalAnalysisSettings.set(key,settings);
+    if(!settings)settings={start:bounds.xmin,end:bounds.xmax,low:0,high:bounds.nyquist,interpolation:INTERPOLATION_DEFAULT};
+    const minWindow=bounds.timeStep*8;settings.start=Math.max(bounds.xmin,Math.min(settings.start,bounds.xmax-minWindow));settings.end=Math.min(bounds.xmax,Math.max(settings.end,settings.start+minWindow));settings.low=Math.max(0,Math.min(settings.low,bounds.nyquist-bounds.freqStep));settings.high=Math.max(settings.low+bounds.freqStep,Math.min(settings.high,bounds.nyquist));if(!INTERPOLATION.SUPPORTED_METHODS.includes(settings.interpolation))settings.interpolation=INTERPOLATION_DEFAULT;signalAnalysisSettings.set(key,settings);
     currentSignalAnalysis={key,test,source,settings,bounds,profile,result:null};E.signalFilterControls.hidden=false;syncFilterControls();renderSignalAnalysis();
   }
   async function drawCepstrum(test,revision){
@@ -275,8 +276,9 @@
     signalAnalysisSettings.set(currentSignalAnalysis.key,settings);syncFilterControls();scheduleSignalAnalysis();
   }
   [E.filterStart,E.filterEnd,E.filterLow,E.filterHigh].forEach(input=>input.addEventListener('input',()=>changeSignalFilter(input)));
+  E.filterInterpolation.addEventListener('change',()=>{if(!currentSignalAnalysis)return;const {settings}=currentSignalAnalysis;settings.interpolation=INTERPOLATION.SUPPORTED_METHODS.includes(E.filterInterpolation.value)?E.filterInterpolation.value:INTERPOLATION_DEFAULT;signalAnalysisSettings.set(currentSignalAnalysis.key,settings);syncFilterControls();scheduleSignalAnalysis();});
   E.filterAfterStop.addEventListener('click',()=>{if(!currentSignalAnalysis)return;const {settings,bounds,profile}=currentSignalAnalysis;settings.start=Math.max(bounds.xmin,Math.min(profile?.stop??bounds.xmin,bounds.xmax-bounds.timeStep*8));settings.end=bounds.xmax;signalAnalysisSettings.set(currentSignalAnalysis.key,settings);syncFilterControls();scheduleSignalAnalysis();});
-  E.filterReset.addEventListener('click',()=>{if(!currentSignalAnalysis)return;const {settings,bounds}=currentSignalAnalysis;Object.assign(settings,{start:bounds.xmin,end:bounds.xmax,low:0,high:bounds.nyquist});signalAnalysisSettings.set(currentSignalAnalysis.key,settings);syncFilterControls();scheduleSignalAnalysis();});
+  E.filterReset.addEventListener('click',()=>{if(!currentSignalAnalysis)return;const {settings,bounds}=currentSignalAnalysis;Object.assign(settings,{start:bounds.xmin,end:bounds.xmax,low:0,high:bounds.nyquist,interpolation:INTERPOLATION_DEFAULT});signalAnalysisSettings.set(currentSignalAnalysis.key,settings);syncFilterControls();scheduleSignalAnalysis();});
   const redrawSimulation=()=>{if(!M)return;const test=M.tests[+E.select.value||0],ball=M.points.find(p=>p.port===test.ballPort),key=`${M.file}:${test.id}`,source=currentSignalAnalysis?.key===key?currentSignalAnalysis.source:[];drawSimulation(test,ball,source);};
   const simulationOutputs={simNoise:v=>`${v}%`,simVelocity:v=>`${v} м/с`,simAttenuation:v=>`${v}%`,simPulse:v=>`${v} мс`};
   [E.simNoise,E.simVelocity,E.simAttenuation,E.simPulse].forEach(input=>input.addEventListener('input',()=>{input.parentElement.querySelector('output').value=simulationOutputs[input.id](input.value);redrawSimulation();}));

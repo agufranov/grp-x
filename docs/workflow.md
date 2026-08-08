@@ -15,6 +15,8 @@
 
 ```powershell
 node --check app.js
+node --check interpolation.js
+npm test
 git -c safe.directory=C:/Users/ils/src/grp-x diff --check
 git -c safe.directory=C:/Users/ils/src/grp-x status --short
 ```

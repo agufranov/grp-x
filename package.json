@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "start": "npx --yes http-server . -p 8080 -c-1"
+    "start": "npx --yes http-server . -p 8080 -c-1",
+    "test": "node tools/test-interpolation.js"
   }
 }

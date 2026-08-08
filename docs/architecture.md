@@ -22,7 +22,9 @@ npm start
 
 - `index.html` — компактная рабочая разметка.
 - `styles.css`, `overrides.css`, `charts-extra.css` — оформление.
-- `app.js` — парсинг, модель, FFT и SVG-отрисовка.
+- `interpolation.js` — линейная и сохраняющая форму PCHIP-интерполяция на неравномерной временной сетке; модуль доступен браузеру и Node.js-тестам.
+- `app.js` — парсинг, модель, подготовка сигнала, FFT и SVG-отрисовка.
+- `tools/test-interpolation.js` — регрессионные проверки интерполяции без внешних зависимостей.
 - `vendor/xlsx.full.min.js` — локальная SheetJS 0.18.5.
 - `tools/export-data.js` — генератор JSON из XLSX.
 - `data/` — встроенные наборы.
