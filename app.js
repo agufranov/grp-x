@@ -1,7 +1,7 @@
 (() => {
   'use strict';
   const $ = id => document.getElementById(id);
-  const E = { file:$('file'), dataset:$('dataset'), testControl:$('testControl'), keyHint:$('keyHint'), work:$('workspace'), wellHead:$('wellHead'), stickySentinel:$('stickySentinel'), miniWell:$('miniWell'), select:$('select'), svg:$('diagram'), cep:$('cepstrum'), computed:$('computedCepstrum'), signal:$('signalGraph'), computedSignal:$('computedSignal'), chartMeta:$('chartMeta'), chartEmpty:$('chartEmpty'), computedMeta:$('computedMeta'), computedEmpty:$('computedEmpty'), signalMeta:$('signalMeta'), signalEmpty:$('signalEmpty'), computedSignalMeta:$('computedSignalMeta'), computedSignalEmpty:$('computedSignalEmpty'), signalFilterControls:$('signalFilterControls'), filterStart:$('filterStart'), filterEnd:$('filterEnd'), filterLow:$('filterLow'), filterHigh:$('filterHigh'), filterInterpolation:$('filterInterpolation'), filterStartOutput:$('filterStartOutput'), filterEndOutput:$('filterEndOutput'), filterLowOutput:$('filterLowOutput'), filterHighOutput:$('filterHighOutput'), filterAfterStop:$('filterAfterStop'), filterReset:$('filterReset'), simPort:$('simPort'), simNoise:$('simNoise'), simVelocity:$('simVelocity'), simAttenuation:$('simAttenuation'), simPulse:$('simPulse'), simSignal:$('simSignal'), simSignalMeta:$('simSignalMeta'), simSignalEmpty:$('simSignalEmpty'), simCepstrum:$('simCepstrum'), simCepstrumMeta:$('simCepstrumMeta'), simCepstrumEmpty:$('simCepstrumEmpty'), scaleTooltip:$('scaleTooltip'), rows:$('rows'), summary:$('summary'), toast:$('toast') };
+  const E = { file:$('file'), wellButton:$('wellButton'), wellButtonName:$('wellButtonName'), wellChooser:$('wellChooser'), wellChooserClose:$('wellChooserClose'), wellOptions:$('wellOptions'), wellUpload:$('wellUpload'), testControl:$('testControl'), keyHint:$('keyHint'), work:$('workspace'), wellHead:$('wellHead'), stickySentinel:$('stickySentinel'), miniWell:$('miniWell'), select:$('select'), svg:$('diagram'), cep:$('cepstrum'), computed:$('computedCepstrum'), signal:$('signalGraph'), computedSignal:$('computedSignal'), chartMeta:$('chartMeta'), chartEmpty:$('chartEmpty'), computedMeta:$('computedMeta'), computedEmpty:$('computedEmpty'), signalMeta:$('signalMeta'), signalEmpty:$('signalEmpty'), computedSignalMeta:$('computedSignalMeta'), computedSignalEmpty:$('computedSignalEmpty'), signalFilterControls:$('signalFilterControls'), filterStart:$('filterStart'), filterEnd:$('filterEnd'), filterLow:$('filterLow'), filterHigh:$('filterHigh'), filterInterpolation:$('filterInterpolation'), filterStartOutput:$('filterStartOutput'), filterEndOutput:$('filterEndOutput'), filterLowOutput:$('filterLowOutput'), filterHighOutput:$('filterHighOutput'), filterAfterStop:$('filterAfterStop'), filterReset:$('filterReset'), simPort:$('simPort'), simNoise:$('simNoise'), simVelocity:$('simVelocity'), simAttenuation:$('simAttenuation'), simPulse:$('simPulse'), simSignal:$('simSignal'), simSignalMeta:$('simSignalMeta'), simSignalEmpty:$('simSignalEmpty'), simCepstrum:$('simCepstrum'), simCepstrumMeta:$('simCepstrumMeta'), simCepstrumEmpty:$('simCepstrumEmpty'), scaleTooltip:$('scaleTooltip'), rows:$('rows'), summary:$('summary'), toast:$('toast') };
   const WELL_GEOMETRY={height:155,top:20,bottom:175,axis:150,miniHeight:65,miniAxis:40,tickStart:125};
   const WELL_SCALE_DEFAULT=1,WELL_SCALE_MIN=.1,WELL_SCALE_MAX=32,WELL_PLOT_LEFT=62,WELL_PLOT_RIGHT=20;
   const CEPSTRUM_SCALE_DEFAULT=1,CEPSTRUM_SCALE_MIN=.1,CEPSTRUM_SCALE_MAX=32,CEPSTRUM_PLOT_LEFT=62,CEPSTRUM_PLOT_RIGHT=20;
@@ -10,7 +10,7 @@
   const wellViewState={scale:WELL_SCALE_DEFAULT,offset:0,drag:null,frame:0};
   const signalAnalysisSettings=new Map();
   let currentSignalAnalysis=null,analysisFrame=0,drawRevision=0;
-  let M;
+  let M,catalog=[],currentWellKey='';
   const txt = v => String(v ?? '').trim();
   const num = v => v == null || txt(v) === '' ? NaN : (typeof v === 'number' ? v : Number(txt(v).replace(',', '.')));
   const isNum = v => Number.isFinite(num(v));
@@ -48,16 +48,24 @@
     return {mode:'xlsx',file:file.name, size:file.size, sheet, nkt, points, tests, wb, cepstrumSheets, cepstrumCache:new Map()};
   }
 
+  function setWellChooserLoading(active){E.wellChooser.classList.toggle('is-loading',active);E.wellChooser.setAttribute('aria-busy',String(active));E.wellChooser.querySelectorAll('button').forEach(button=>button.disabled=active);}
+  function focusWellChooser(){if(E.wellChooser.hidden)return;const current=E.wellOptions.querySelector('[aria-current="true"]'),first=E.wellOptions.querySelector('button');(current||first||E.wellUpload).focus();}
+  function openWellChooser(){E.wellChooser.hidden=false;document.body.classList.add('well-chooser-open');E.wellButton.setAttribute('aria-expanded','true');requestAnimationFrame(focusWellChooser);}
+  function closeWellChooser(){if(!M||E.wellChooser.classList.contains('is-loading'))return;E.wellChooser.hidden=true;document.body.classList.remove('well-chooser-open');E.wellButton.setAttribute('aria-expanded','false');E.wellButton.focus({preventScroll:true});scheduleStickyState();}
+  function completeWellSelection(label,key){currentWellKey=String(key);E.wellButtonName.textContent=label;E.wellButton.title='Выбрать другую скважину';E.wellChooserClose.hidden=false;E.wellOptions.querySelectorAll('[data-well-key]').forEach(button=>button.setAttribute('aria-current',String(button.dataset.wellKey===currentWellKey)));E.wellUpload.setAttribute('aria-current',String(currentWellKey==='upload'));setWellChooserLoading(false);closeWellChooser();}
+  function renderWellOptions(){E.wellOptions.innerHTML=catalog.map((item,index)=>`<button class="well-choice" type="button" data-well-index="${index}" data-well-key="${esc(String(item.id??index))}" aria-current="${String(String(item.id??index)===currentWellKey)}"><span class="well-choice-icon" aria-hidden="true">№</span><span><strong>${esc(item.name)}</strong><small>${fmt(item.count)} испытаний</small></span><svg class="well-choice-arrow" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3l5 5-5 5"/></svg></button>`).join('');}
+
   async function load(file) {
     if (!file || !/\.xlsx?$/i.test(file.name)) return error('Выберите файл XLSX.');
+    setWellChooserLoading(true);
     try {
       const wb=XLSX.read(await file.arrayBuffer(), {type:'array', dense:true});
-      M=parse(wb,file); E.dataset.value=''; render();
+      M=parse(wb,file);render();completeWellSelection(file.name.replace(/\.xlsx?$/i,''),'upload');
     } catch (e) { error(e.message || 'Не удалось прочитать файл.'); }
-    finally { E.file.value=''; }
+    finally { E.file.value='';setWellChooserLoading(false); }
   }
 
-  function showWellDependentControls(){E.dataset.classList.remove('needs-selection');E.testControl.hidden=false;E.keyHint.hidden=false;}
+  function showWellDependentControls(){E.testControl.hidden=false;E.keyHint.hidden=false;}
   function render() {
     showWellDependentControls();
     E.select.innerHTML=M.tests.map((t,i)=>`<option value="${i}">${t.id} · ${esc(t.name)}</option>`).join('');
@@ -272,28 +280,43 @@
 
   async function loadDataset(item){
     if(!item)return;
+    setWellChooserLoading(true);
     try{
       const [commonResponse,indexResponse]=await Promise.all([fetch(item.common),fetch(item.experiments)]);
       if(!commonResponse.ok||!indexResponse.ok)throw Error('Не удалось загрузить готовый набор данных.');
       const common=await commonResponse.json(),tests=await indexResponse.json();
       M={mode:'json',file:common.sourceFile||common.name,sheet:'Конструкция',nkt:common.tubingDepth,points:common.perforations,tests,experimentBase:item.experiments.replace(/\/index\.json$/,''),cepstrumCache:new Map()};
-      render();
+      render();completeWellSelection(item.name,item.id);
     }catch(e){error(e.message||'Не удалось загрузить готовый набор данных.');}
+    finally{setWellChooserLoading(false);}
   }
   async function initCatalog(){
     try{
-      const response=await fetch('data/catalog.json');if(!response.ok)return;
-      const catalog=await response.json();
-      E.dataset.innerHTML='<option value="">Выберите скважину…</option>'+catalog.map((x,i)=>`<option value="${i}">${esc(x.name)} · ${x.count} испытаний</option>`).join('')+'<option value="upload">＋ Загрузить XLSX…</option>';
-      E.dataset.onchange=()=>{if(E.dataset.value==='upload'){E.dataset.value='';E.file.click();}else if(E.dataset.value!=='')loadDataset(catalog[+E.dataset.value]);};
-    }catch(_){/* При file:// остаётся обычная загрузка XLSX. */}
+      const response=await fetch('data/catalog.json');if(!response.ok)throw Error('Каталог недоступен');
+      catalog=await response.json();renderWellOptions();
+    }catch(_){E.wellOptions.innerHTML='<p class="well-catalog-status">Встроенный каталог недоступен. Загрузите файл XLSX.</p>';}
+    finally{if(!E.wellChooser.hidden)requestAnimationFrame(focusWellChooser);}
   }
 
   let timer;function error(m){E.toast.textContent=m;E.toast.classList.remove('hidden');clearTimeout(timer);timer=setTimeout(()=>E.toast.classList.add('hidden'),5000);}
   E.file.onchange=e=>load(e.target.files[0]);E.select.onchange=drawWell;
-  E.dataset.onchange=()=>{if(E.dataset.value==='upload'){E.dataset.value='';E.file.click();}};
+  E.wellButton.addEventListener('click',openWellChooser);
+  E.wellChooserClose.addEventListener('click',closeWellChooser);
+  E.wellChooser.addEventListener('click',event=>{if(event.target===E.wellChooser)closeWellChooser();});
+  E.wellOptions.addEventListener('click',event=>{const button=event.target.closest('[data-well-index]');if(button)loadDataset(catalog[+button.dataset.wellIndex]);});
+  E.wellUpload.addEventListener('click',()=>E.file.click());
   const setZoomModifier=active=>document.documentElement.classList.toggle('is-zoom-modifier',active);
   window.addEventListener('keydown',event=>{
+    if(!E.wellChooser.hidden){
+      if(event.key==='Escape'){event.preventDefault();closeWellChooser();}
+      else if(event.key==='Tab'){
+        const focusable=[...E.wellChooser.querySelectorAll('button:not([disabled])')].filter(element=>!element.hidden),first=focusable[0],last=focusable.at(-1);
+        if(!first){event.preventDefault();return;}
+        if(event.shiftKey&&(document.activeElement===first||!E.wellChooser.contains(document.activeElement))){event.preventDefault();last.focus();}
+        else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
+      }
+      return;
+    }
     if(event.key==='Shift')setZoomModifier(true);
     if(!M||E.select.disabled||(event.key!=='ArrowUp'&&event.key!=='ArrowDown')||event.altKey||event.ctrlKey||event.metaKey)return;
     event.preventDefault();const current=+E.select.value||0,next=Math.max(0,Math.min(M.tests.length-1,current+(event.key==='ArrowUp'?-1:1)));
@@ -335,5 +358,5 @@
   window.addEventListener('scroll',scheduleStickyState,{passive:true});
   scheduleStickyState();
   let resizeTimer;window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{if(M)drawWell();scheduleStickyState();},100);});
-  initCatalog();
+  initCatalog();requestAnimationFrame(focusWellChooser);
 })();

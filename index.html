@@ -4,15 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>ГРП · Схема скважины</title>
-  <link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="overrides.css"><link rel="stylesheet" href="charts-extra.css"><link rel="stylesheet" href="simulation.css"><link rel="stylesheet" href="mini-well.css"><link rel="stylesheet" href="cursor-guide.css"><link rel="stylesheet" href="cepstrum-pan.css">
+  <link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="overrides.css"><link rel="stylesheet" href="charts-extra.css"><link rel="stylesheet" href="simulation.css"><link rel="stylesheet" href="mini-well.css"><link rel="stylesheet" href="cursor-guide.css"><link rel="stylesheet" href="cepstrum-pan.css"><link rel="stylesheet" href="well-chooser.css">
 </head>
-<body>
+<body class="well-chooser-open">
   <main>
     <section id="workspace">
       <div id="stickySentinel" aria-hidden="true"></div>
       <div class="well-head" id="wellHead">
           <label>Скважина
-            <select id="dataset" class="needs-selection"><option value="">Выберите скважину…</option><option value="upload">＋ Загрузить XLSX…</option></select>
+            <button id="wellButton" class="well-button" type="button" aria-haspopup="dialog" aria-controls="wellChooser" aria-expanded="true"><span id="wellButtonName">Выбрать скважину</span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg></button>
           </label>
           <label id="testControl" hidden>Испытание
             <select id="select" disabled><option>Сначала выберите скважину</option></select>
@@ -45,6 +45,19 @@
     <div id="scaleTooltip" class="scale-tooltip" role="tooltip" aria-hidden="true">Тянуть/СКМ — сдвиг · Shift + тянуть — масштаб · ПКМ — сброс</div>
     <div id="toast" class="toast hidden"></div>
   </main>
+  <div id="wellChooser" class="well-chooser" role="dialog" aria-modal="true" aria-labelledby="wellChooserTitle" aria-describedby="wellChooserDescription" aria-busy="false">
+    <section class="well-chooser-panel">
+      <header class="well-chooser-head">
+        <div><span>Исходные данные</span><h1 id="wellChooserTitle">Выберите скважину</h1></div>
+        <button id="wellChooserClose" class="well-chooser-close" type="button" aria-label="Закрыть выбор скважины" hidden><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg></button>
+      </header>
+      <p id="wellChooserDescription" class="well-chooser-description">Выберите подготовленный набор данных или загрузите собственный файл XLSX.</p>
+      <div class="well-choice-list">
+        <div id="wellOptions" class="well-options"><p class="well-catalog-status">Загружаю список скважин…</p></div>
+        <button id="wellUpload" class="well-choice well-upload" type="button"><span class="well-choice-icon" aria-hidden="true">＋</span><span><strong>Загрузить XLSX</strong><small>Открыть файл с этого компьютера</small></span><svg class="well-choice-arrow" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3l5 5-5 5"/></svg></button>
+      </div>
+    </section>
+  </div>
   <script src="vendor/xlsx.full.min.js"></script><script src="interpolation.js"></script><script src="app.js"></script>
 </body>
 </html>
