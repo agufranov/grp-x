@@ -1,3 +1,10 @@
 .cepstrum-scale-target.is-panning{cursor:grabbing}
+.well-scale-target{cursor:ew-resize;touch-action:pan-y;user-select:none}
+.mini-well.well-scale-target{pointer-events:auto}
+.well-scale-target.is-panning{cursor:grabbing}
 html.is-panning-cepstrum,
 html.is-panning-cepstrum *{cursor:grabbing!important;user-select:none!important}
+html.is-scaling-well,
+html.is-scaling-well *{cursor:ew-resize!important;user-select:none!important}
+html.is-panning-well,
+html.is-panning-well *{cursor:grabbing!important;user-select:none!important}

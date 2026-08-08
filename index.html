@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>ГРП · Схема скважины</title>
-  <link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="overrides.css"><link rel="stylesheet" href="charts-extra.css"><link rel="stylesheet" href="cepstrum-pan.css"><link rel="stylesheet" href="simulation.css"><link rel="stylesheet" href="mini-well.css"><link rel="stylesheet" href="cursor-guide.css">
+  <link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="overrides.css"><link rel="stylesheet" href="charts-extra.css"><link rel="stylesheet" href="simulation.css"><link rel="stylesheet" href="mini-well.css"><link rel="stylesheet" href="cursor-guide.css"><link rel="stylesheet" href="cepstrum-pan.css">
 </head>
 <body>
   <main>
@@ -18,10 +18,10 @@
             <select id="select" disabled><option>Сначала выберите скважину</option></select>
           </label>
           <span class="key-hint"><kbd>↑</kbd> предыдущее <kbd>↓</kbd> следующее</span>
-          <svg id="miniWell" class="mini-well" aria-label="Миниатюра скважины"></svg>
+          <svg id="miniWell" class="mini-well well-scale-target" aria-label="Миниатюра скважины" aria-describedby="scaleTooltip"></svg>
       </div>
       <div class="card well-card">
-        <div class="scroll"><svg id="diagram" viewBox="0 0 1200 190" aria-label="Схема скважины"><text x="600" y="95" text-anchor="middle" fill="#8da098" font-size="13">Выберите скважину, чтобы построить схему</text></svg></div>
+        <div class="scroll"><svg id="diagram" class="well-scale-target" viewBox="0 0 1200 190" aria-label="Схема скважины" aria-describedby="scaleTooltip"><text x="600" y="95" text-anchor="middle" fill="#8da098" font-size="13">Выберите скважину, чтобы построить схему</text></svg></div>
       </div>
       <section class="chart-group data-chart-group" aria-labelledby="dataChartsTitle">
         <h2 id="dataChartsTitle" class="chart-group-title"><button class="chart-group-toggle" type="button" aria-expanded="true"><span>Данные</span><svg class="chart-group-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 10l5-5 5 5"/></svg></button></h2>
@@ -42,7 +42,7 @@
     </section>
     <input type="file" id="file" accept=".xlsx,.xls" hidden>
     <div id="cursorGuide" class="cursor-guide" aria-hidden="true"></div>
-    <div id="scaleTooltip" class="scale-tooltip" role="tooltip" aria-hidden="true">Тянуть — масштаб · Shift/СКМ — сдвиг</div>
+    <div id="scaleTooltip" class="scale-tooltip" role="tooltip" aria-hidden="true">Тянуть — масштаб · Shift/СКМ — сдвиг · ПКМ — сброс</div>
     <div id="toast" class="toast hidden"></div>
   </main>
   <script src="vendor/xlsx.full.min.js"></script><script src="interpolation.js"></script><script src="app.js"></script>
