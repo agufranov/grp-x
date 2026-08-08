@@ -5,7 +5,7 @@
   const WELL_GEOMETRY={height:155,top:20,bottom:175,axis:150,miniHeight:65,miniAxis:40,tickStart:125};
   const WELL_SCALE_DEFAULT=1,WELL_SCALE_MIN=.1,WELL_SCALE_MAX=32,WELL_PLOT_LEFT=62,WELL_PLOT_RIGHT=20;
   const CEPSTRUM_SCALE_DEFAULT=1,CEPSTRUM_SCALE_MIN=.1,CEPSTRUM_SCALE_MAX=32,CEPSTRUM_PLOT_LEFT=62,CEPSTRUM_PLOT_RIGHT=20;
-  const INTERPOLATION=globalThis.GrpInterpolation,INTERPOLATION_DEFAULT=INTERPOLATION.DEFAULT_METHOD,INTERPOLATION_LABELS={pchip:'монотонный сплайн',linear:'линейная интерполяция'};
+  const INTERPOLATION=globalThis.GrpInterpolation,INTERPOLATION_DEFAULT=INTERPOLATION.DEFAULT_METHOD,INTERPOLATION_LABELS={pchip:'монотонный сплайн',linear:'линейная интерполяция'},SIM_PROCESSING=globalThis.GrpSimulationProcessing;
   const cepstrumScaleStates=new Map();
   const wellViewState={scale:WELL_SCALE_DEFAULT,offset:0,drag:null,frame:0};
   const signalAnalysisSettings=new Map();
@@ -145,30 +145,31 @@
     backward[values.length-1]=forward.at(-1);for(let i=values.length-2;i>=0;i--)backward[i]=backward[i+1]+alpha*(forward[i]-backward[i+1]);
     return backward;
   }
-  function tukeyWindow(values,alpha=.12){
+  function tukeyWindow(values,alpha=.12,edges='both'){
     const result=Float64Array.from(values),edge=alpha*(values.length-1)/2;if(!(edge>0))return result;
-    for(let i=0;i<values.length;i++){const distance=Math.min(i,values.length-1-i),weight=distance>=edge?1:.5*(1-Math.cos(Math.PI*distance/edge));result[i]*=weight;}
+    for(let i=0;i<values.length;i++){const distance=edges==='right'?values.length-1-i:edges==='left'?i:Math.min(i,values.length-1-i),weight=distance>=edge?1:.5*(1-Math.cos(Math.PI*distance/edge));result[i]*=weight;}
     return result;
   }
-  function cepstrumFromValues(values,step){
+  function cepstrumFromValues(values,step,options={}){
     if(values.length<4)return[];let n=1;while(n<values.length)n<<=1;
     const re=new Float64Array(n),im=new Float64Array(n),mean=values.reduce((sum,value)=>sum+value,0)/values.length;
     for(let i=0;i<values.length;i++)re[i]=values[i]-mean;fft(re,im);
-    for(let i=0;i<n;i++){re[i]=Math.log(Math.max(1e-12,Math.hypot(re[i],im[i])));im[i]=0;}fft(re,im,true);
+    const magnitudes=new Float64Array(n);for(let i=0;i<n;i++)magnitudes[i]=Math.hypot(re[i],im[i]);
+    re.set(SIM_PROCESSING.stabilizedLogSpectrum(magnitudes,options));im.fill(0);fft(re,im,true);
     const result=[];for(let i=0;i<Math.floor(n/2);i++)result.push({x:i*step,y:re[i]});return result;
   }
-  function processSignal(source,{start=-Infinity,end=Infinity,low=0,high=Infinity,interpolation=INTERPOLATION_DEFAULT}={}){
+  function processSignal(source,{start=-Infinity,end=Infinity,low=0,high=Infinity,interpolation=INTERPOLATION_DEFAULT,windowEdges='both'}={}){
     const grid=resampleSignal(source,start,end,interpolation);if(!grid)return null;
     const trend=linearTrend(grid.values),residual=new Float64Array(grid.values.length);
     for(let i=0;i<residual.length;i++)residual[i]=grid.values[i]-trend[i];
     let filtered=residual;
     if(high<grid.nyquist*.995)filtered=zeroPhaseLowPass(filtered,high,grid.step);
     if(low>0){const slow=zeroPhaseLowPass(filtered,low,grid.step),band=new Float64Array(filtered.length);for(let i=0;i<band.length;i++)band[i]=filtered[i]-slow[i];filtered=band;}
-    const windowed=tukeyWindow(filtered),processed=Array.from(windowed,(value,i)=>[grid.xmin+i*grid.step,value]);
+    const windowed=tukeyWindow(filtered,.12,windowEdges),processed=Array.from(windowed,(value,i)=>[grid.xmin+i*grid.step,value]);
     return{grid,processed,windowed};
   }
-  function analyzeSignal(source,settings={}){
-    const processed=processSignal(source,settings);return processed?{grid:processed.grid,processed:processed.processed,cepstrum:cepstrumFromValues(processed.windowed,processed.grid.step)}:null;
+  function analyzeSignal(source,settings={},cepstrumOptions={}){
+    const processed=processSignal(source,settings);return processed?{grid:processed.grid,processed:processed.processed,cepstrum:cepstrumFromValues(processed.windowed,processed.grid.step,cepstrumOptions)}:null;
   }
   function setGraphState(svg,empty,isEmpty,message){empty.textContent=message;empty.classList.toggle('hidden',!isEmpty);empty.parentElement.classList.toggle('empty-chart',isEmpty);if(isEmpty){svg.innerHTML='';const state=cepstrumScaleStates.get(svg);if(state){state.raw=[];state.options=null;}}}
   function wellObjectMarkerMarkup(svg,w,L,R,T,B,clipId){
@@ -261,22 +262,33 @@
   function syncSimulationPorts(test,ball){const endDepth=ball?.depth??Math.max(...M.points.map(p=>p.depth)),available=M.points.filter(p=>p.depth<=endDepth).sort((a,b)=>a.port-b.port),key=`${M.file}:${test.id}:${ball?.port??'open'}`;if(E.simPort.dataset.key!==key){E.simPort.innerHTML=available.map(p=>`<option value="${p.port}">Порт ${p.port} · ${fmt(p.depth)} м</option>`).join('');const preferred=ball?.port??available.reduce((best,p)=>p.depth>best.depth?p:best,available[0]).port;E.simPort.value=String(preferred);E.simPort.dataset.key=key;}E.simPort.disabled=false;return available;}
   function seededRandom(seedText){let seed=2166136261;for(const ch of seedText){seed^=ch.charCodeAt(0);seed=Math.imul(seed,16777619);}return()=>{seed+=0x6D2B79F5;let t=seed;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296;};}
   function addRicker(values,sampleRate,time,width,amplitude){const radius=Math.ceil(width*4*sampleRate),center=Math.round(time*sampleRate);for(let i=Math.max(0,center-radius);i<=Math.min(values.length-1,center+radius);i++){const z=Math.PI*((i/sampleRate)-time)/width,z2=z*z;values[i]+=amplitude*(1-2*z2)*Math.exp(-z2);}}
-  function defaultPumpProfile(endDepth,velocity){const travel=2*endDepth/velocity,stop=12,minimumTime=stop+Math.max(2.5,travel*.45),reboundTime=minimumTime+Math.max(3,travel*.65);return{start:0,end:Math.max(48,reboundTime+24),stop,minimumTime,reboundTime,on:1,settled:.42,minimum:.23,rebound:.51,step:1/256};}
+  function simulateSensor(values,sourceRate,targetStep){const cutoff=Math.min(sourceRate*.45,.4/targetStep),filtered=zeroPhaseLowPass(values,cutoff,1/sourceRate);return{values:SIM_PROCESSING.resampleUniform(filtered,1/sourceRate,targetStep),cutoff};}
+  function defaultPumpProfile(endDepth,velocity){const travel=2*endDepth/velocity,stop=12,minimumTime=stop+Math.max(2.5,travel*.45),reboundTime=minimumTime+Math.max(3,travel*.65);return{start:0,end:Math.max(48,reboundTime+24),stop,minimumTime,reboundTime,on:1,settled:.42,minimum:.23,rebound:.51,step:1/50};}
   function simulateSignal(test,ball,measuredSource=[]){
-    const velocity=+E.simVelocity.value,noise=+E.simNoise.value/100,attenuation=.02+(+E.simAttenuation.value/100)*.22,width=+E.simPulse.value/1000,endDepth=ball?.depth??Math.max(...M.points.map(p=>p.depth)),ports=syncSimulationPorts(test,ball),activePort=+E.simPort.value,sampleRate=256,measuredProfile=estimatePumpProfile(measuredSource),profile=measuredProfile||defaultPumpProfile(endDepth,velocity),duration=Math.max(1,profile.end-profile.start),count=Math.ceil(duration*sampleRate)+1,values=new Float64Array(count),reflectors=[];
+    const velocity=+E.simVelocity.value,noise=+E.simNoise.value/100,attenuation=.02+(+E.simAttenuation.value/100)*.22,width=+E.simPulse.value/1000,endDepth=ball?.depth??Math.max(...M.points.map(p=>p.depth)),ports=syncSimulationPorts(test,ball),activePort=+E.simPort.value,sourceRate=256,measuredProfile=estimatePumpProfile(measuredSource),profile=measuredProfile||defaultPumpProfile(endDepth,velocity),duration=Math.max(1,profile.end-profile.start),count=Math.ceil(duration*sourceRate)+1,envelope=new Float64Array(count),wave=new Float64Array(count),cepstrumWave=new Float64Array(count),reflectors=[];
     const minimumTime=Math.max(profile.stop+.5,profile.minimumTime),reboundTime=Math.max(minimumTime+.5,profile.reboundTime),fastTau=Math.max(.7,(reboundTime-minimumTime)/2.4),slowTau=Math.max(8,(profile.end-reboundTime)/2.2),reboundExcess=Math.max(0,profile.rebound-profile.settled),slowAmplitude=reboundExcess*1.55,fastAmplitude=profile.settled+slowAmplitude-profile.minimum;
     for(let i=0;i<count;i++){
-      const time=profile.start+i/sampleRate;
-      if(time<=profile.stop)values[i]=profile.on;
-      else if(time<minimumTime){const phase=(time-profile.stop)/(minimumTime-profile.stop),smooth=phase*phase*(3-2*phase);values[i]=profile.on+(profile.minimum-profile.on)*smooth;}
-      else{const elapsed=time-minimumTime;values[i]=profile.settled+slowAmplitude*Math.exp(-elapsed/slowTau)-fastAmplitude*Math.exp(-elapsed/fastTau);}
+      const time=profile.start+i/sourceRate;
+      if(time<=profile.stop)envelope[i]=profile.on;
+      else if(time<minimumTime){const phase=(time-profile.stop)/(minimumTime-profile.stop),smooth=phase*phase*(3-2*phase);envelope[i]=profile.on+(profile.minimum-profile.on)*smooth;}
+      else{const elapsed=time-minimumTime;envelope[i]=profile.settled+slowAmplitude*Math.exp(-elapsed/slowTau)-fastAmplitude*Math.exp(-elapsed/fastTau);}
     }
-    reflectors.push({depth:0,amplitude:-1.25,delay:.08,type:'фронт остановки'});for(const point of ports)reflectors.push({depth:point.depth,amplitude:point.port===activePort?-.9:.14,type:point.port===activePort?'активная перфорация':'муфта'});if(M.nkt<=endDepth)reflectors.push({depth:M.nkt,amplitude:-.52,type:'конец НКТ'});if(ball)reflectors.push({depth:ball.depth,amplitude:1.15,type:'шар'});
-    const pressureSpan=Math.max(1,Math.abs(profile.on-profile.minimum));for(const reflector of reflectors){const delay=reflector.delay??2*reflector.depth/velocity,pathKm=2*reflector.depth/1000,amplitude=reflector.amplitude*pressureSpan*.025*Math.exp(-attenuation*pathKm);addRicker(values,sampleRate,profile.stop-profile.start+delay,width,amplitude);}
-    const random=seededRandom(`${M.file}:${test.id}:${activePort}`);let colored=0;for(let i=0;i<count;i++){const white=(random()+random()+random()+random()-2)*.5;colored=colored*.82+white*.18;const time=profile.start+i/sampleRate,pumpFactor=time<profile.stop?1:.45;values[i]+=noise*pressureSpan*.06*pumpFactor*(white*.65+colored*.35);}
-    const source=Array.from(values,(value,i)=>[profile.start+i/sampleRate,value]);return{source,sampleRate,duration,reflectors:reflectors.length,activePort,endDepth,stopTime:profile.stop,endTime:profile.end,fitted:Boolean(measuredProfile)};
+    for(const point of ports)reflectors.push({depth:point.depth,amplitude:point.port===activePort?-.9:.14,type:point.port===activePort?'активная перфорация':'муфта'});if(M.nkt<=endDepth)reflectors.push({depth:M.nkt,amplitude:-.52,type:'конец НКТ'});if(ball)reflectors.push({depth:ball.depth,amplitude:1.15,type:'шар'});
+    const pressureSpan=Math.max(1,Math.abs(profile.on-profile.minimum));for(const reflector of reflectors){const delay=2*reflector.depth/velocity,pathKm=2*reflector.depth/1000,amplitude=reflector.amplitude*pressureSpan*.025*Math.exp(-attenuation*pathKm);addRicker(wave,sourceRate,profile.stop-profile.start+delay,width,amplitude);addRicker(cepstrumWave,sourceRate,profile.stop-profile.start+delay,width,amplitude);}
+    addRicker(cepstrumWave,sourceRate,profile.stop-profile.start+.08,width,-1.25*pressureSpan*.025);
+    const random=seededRandom(`${M.file}:${test.id}:${activePort}`);let colored=0;for(let i=0;i<count;i++){const white=(random()+random()+random()+random()-2)*.5;colored=colored*.82+white*.18;const time=profile.start+i/sourceRate,pumpFactor=time<profile.stop?1:.45,value=noise*pressureSpan*.06*pumpFactor*(white*.65+colored*.35);wave[i]+=value;cepstrumWave[i]+=value;}
+    const targetStep=Math.max(1/200,Math.min(.1,measuredProfile?.step||.02)),sensorEnvelope=simulateSensor(envelope,sourceRate,targetStep),sensorWave=simulateSensor(wave,sourceRate,targetStep),sensorCepstrumWave=simulateSensor(cepstrumWave,sourceRate,targetStep),outputCount=Math.min(sensorEnvelope.values.length,sensorWave.values.length,sensorCepstrumWave.values.length),source=[],residualSource=[];
+    for(let i=0;i<outputCount;i++){const time=profile.start+i*targetStep;source.push([time,sensorEnvelope.values[i]+sensorWave.values[i]]);residualSource.push([time,sensorCepstrumWave.values[i]]);}
+    const fullDepth=Math.ceil(Math.max(M.nkt,...M.points.map(point=>point.depth))/500)*500,reflectorDepths=reflectors.map(reflector=>reflector.depth),minDelay=2*Math.min(...reflectorDepths)/velocity,maxDelay=Math.max(2*endDepth/velocity,minDelay+targetStep*4),domainMax=Math.max(2*fullDepth/velocity,maxDelay);
+    return{source,residualSource,sampleRate:1/targetStep,sensorCutoff:sensorEnvelope.cutoff,duration,reflectors:reflectors.length,activePort,endDepth,stopTime:profile.stop,endTime:source.at(-1)?.[0]??profile.end,fitted:Boolean(measuredProfile),minDelay,maxDelay,domainMax};
   }
-  function drawSimulation(test,ball,measuredSource=[]){const simulation=simulateSignal(test,ball,measuredSource),analysis=analyzeSignal(simulation.source,{start:simulation.stopTime,end:simulation.endTime}),cepstrum=analysis?.cepstrum||[];setGraphState(E.simSignal,E.simSignalEmpty,false,'');setGraphState(E.simCepstrum,E.simCepstrumEmpty,!cepstrum.length,'Недостаточно данных для расчёта кепстра');E.simSignalMeta.textContent=`${simulation.source.length.toLocaleString('ru-RU')} отсчётов · остановка ${fmt(simulation.stopTime)} с · ${simulation.fitted?'профиль по данным':'типовой профиль'}`;E.simCepstrumMeta.textContent=`${cepstrum.length.toLocaleString('ru-RU')} точек · после остановки · порт ${simulation.activePort} · Y 1–99%`;drawPlot(E.simSignal,simulation.source,{color:'#c25a45'});if(cepstrum.length)drawPlot(E.simCepstrum,cepstrum,{robust:true,color:'#7256b5',wellMarkers:true});}
+  function drawSimulation(test,ball,measuredSource=[]){
+    const simulation=simulateSignal(test,ball,measuredSource),analysis=analyzeSignal(simulation.residualSource,{start:simulation.stopTime,end:simulation.endTime,windowEdges:'right'},{floorRatio:1e-3,smoothBins:5}),rawCepstrum=analysis?.cepstrum||[],lifterTaper=Math.max(.08,(simulation.maxDelay-simulation.minDelay)*.08),liftedCepstrum=SIM_PROCESSING.lifterCepstrum(rawCepstrum,{min:simulation.minDelay,max:simulation.maxDelay,taper:lifterTaper,domainMax:simulation.domainMax}),cepstrum=SIM_PROCESSING.normalizeCepstrum(liftedCepstrum);
+    setGraphState(E.simSignal,E.simSignalEmpty,false,'');setGraphState(E.simCepstrum,E.simCepstrumEmpty,!cepstrum.length,'Недостаточно данных для расчёта кепстра');
+    E.simSignalMeta.textContent=`${simulation.source.length.toLocaleString('ru-RU')} отсчётов · остановка ${fmt(simulation.stopTime)} с · датчик ${fmt(simulation.sampleRate)} Гц / ≤ ${fmt(simulation.sensorCutoff)} Гц · ${simulation.fitted?'профиль по данным':'типовой профиль'}`;
+    E.simCepstrumMeta.textContent=`нормированный отклик без огибающей · τ ${fmt(simulation.minDelay)}–${fmt(simulation.maxDelay)} с · −60 дБ · 5 бинов · порт ${simulation.activePort}`;
+    drawPlot(E.simSignal,simulation.source,{color:'#c25a45'});if(cepstrum.length)drawPlot(E.simCepstrum,cepstrum,{robust:true,color:'#7256b5',wellMarkers:true});
+  }
 
   async function loadDataset(item){
     if(!item)return;
