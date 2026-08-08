@@ -1,0 +1,3 @@
+.cepstrum-scale-target.is-panning{cursor:grabbing}
+html.is-panning-cepstrum,
+html.is-panning-cepstrum *{cursor:grabbing!important;user-select:none!important}
