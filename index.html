@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>ГРП · Схема скважины</title>
-  <link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="overrides.css"><link rel="stylesheet" href="charts-extra.css"><link rel="stylesheet" href="simulation.css"><link rel="stylesheet" href="mini-well.css">
+  <link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="overrides.css"><link rel="stylesheet" href="charts-extra.css"><link rel="stylesheet" href="simulation.css"><link rel="stylesheet" href="mini-well.css"><link rel="stylesheet" href="cursor-guide.css">
 </head>
 <body>
   <main>
@@ -39,6 +39,7 @@
       <details><summary>Распознанные данные <span id="summary"></span></summary><div class="table"><table><thead><tr><th>№ испытания</th><th>Название</th><th>Порт шара</th><th>Глубина</th></tr></thead><tbody id="rows"></tbody></table></div></details>
     </section>
     <input type="file" id="file" accept=".xlsx,.xls" hidden>
+    <div id="cursorGuide" class="cursor-guide" aria-hidden="true"></div>
     <div id="toast" class="toast hidden"></div>
   </main>
   <script src="vendor/xlsx.full.min.js"></script><script src="app.js"></script>

@@ -128,6 +128,7 @@
     if(next!==current){E.select.value=String(next);drawWell();}
   });
   document.addEventListener('click',event=>{const head=event.target.closest('.chart-head');if(!head)return;const card=head.closest('.cepstrum-card');card.classList.toggle('collapsed');if(!card.classList.contains('collapsed')&&M)requestAnimationFrame(()=>drawWell());});
+  const cursorGuide=$('cursorGuide');let guideFrame=0,guideX=-10;window.addEventListener('pointermove',event=>{if(event.pointerType==='touch')return;guideX=event.clientX;cursorGuide.classList.add('visible');if(!guideFrame)guideFrame=requestAnimationFrame(()=>{cursorGuide.style.transform=`translate3d(${guideX}px,0,0)`;guideFrame=0;});},{passive:true});document.documentElement.addEventListener('pointerleave',()=>cursorGuide.classList.remove('visible'));window.addEventListener('blur',()=>cursorGuide.classList.remove('visible'));
   const redrawSimulation=()=>{if(!M)return;const test=M.tests[+E.select.value||0],ball=M.points.find(p=>p.port===test.ballPort);drawSimulation(test,ball);};
   const simulationOutputs={simNoise:v=>`${v}%`,simVelocity:v=>`${v} м/с`,simAttenuation:v=>`${v}%`,simPulse:v=>`${v} мс`};
   [E.simNoise,E.simVelocity,E.simAttenuation,E.simPulse].forEach(input=>input.addEventListener('input',()=>{input.parentElement.querySelector('output').value=simulationOutputs[input.id](input.value);redrawSimulation();}));

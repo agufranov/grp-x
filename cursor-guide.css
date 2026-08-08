@@ -1,0 +1,1 @@
+.cursor-guide{position:fixed;z-index:100;top:0;bottom:0;left:0;width:1px;pointer-events:none;opacity:0;background:#e15f48;box-shadow:0 0 0 1px #e15f4826,0 0 6px #e15f4859;transform:translate3d(-10px,0,0);transition:opacity .08s}.cursor-guide.visible{opacity:.72}
