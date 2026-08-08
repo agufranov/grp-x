@@ -1,7 +1,7 @@
 (() => {
   'use strict';
   const $ = id => document.getElementById(id);
-  const E = { file:$('file'), dataset:$('dataset'), work:$('workspace'), select:$('select'), svg:$('diagram'), cep:$('cepstrum'), chartTitle:$('chartTitle'), chartMeta:$('chartMeta'), chartEmpty:$('chartEmpty'), rows:$('rows'), summary:$('summary'), toast:$('toast') };
+  const E = { file:$('file'), dataset:$('dataset'), work:$('workspace'), select:$('select'), svg:$('diagram'), cep:$('cepstrum'), computed:$('computedCepstrum'), signal:$('signalGraph'), chartTitle:$('chartTitle'), chartMeta:$('chartMeta'), chartEmpty:$('chartEmpty'), computedTitle:$('computedTitle'), computedMeta:$('computedMeta'), computedEmpty:$('computedEmpty'), signalTitle:$('signalTitle'), signalMeta:$('signalMeta'), signalEmpty:$('signalEmpty'), rows:$('rows'), summary:$('summary'), toast:$('toast') };
   let M;
   const txt = v => String(v ?? '').trim();
   const num = v => v == null || txt(v) === '' ? NaN : (typeof v === 'number' ? v : Number(txt(v).replace(',', '.')));
@@ -74,24 +74,22 @@
       const response=await fetch(`${M.experimentBase}/${test.id}.json`);if(!response.ok)throw Error(`Не удалось загрузить испытание ${test.id}`);
       const payload=await response.json(),value={name:payload.cepstrumSheet,data:(payload.cepstrum||[]).map(p=>({x:p[0],y:p[1]})),source:payload.source||[]};M.cepstrumCache.set(test.id,value);return value;
     }
-    const name=M.cepstrumSheets.get(`${test.id}c`); if(!name)return null;
-    const rows=XLSX.utils.sheet_to_json(M.wb.Sheets[name],{header:1,defval:null,raw:true}),data=[];
-    for(const r of rows)if(isNum(r[0])&&isNum(r[1]))data.push({x:num(r[0]),y:num(r[1])});
-    const value={name,data}; M.cepstrumCache.set(test.id,value); return value;
+    const name=M.cepstrumSheets.get(`${test.id}c`),sourceName=String(test.id),data=[],source=[];
+    if(name)for(const r of XLSX.utils.sheet_to_json(M.wb.Sheets[name],{header:1,defval:null,raw:true}))if(isNum(r[0])&&isNum(r[1]))data.push({x:num(r[0]),y:num(r[1])});
+    if(M.wb.Sheets[sourceName])for(const r of XLSX.utils.sheet_to_json(M.wb.Sheets[sourceName],{header:1,defval:null,raw:true}))if(isNum(r[0])&&isNum(r[1]))source.push([num(r[0]),num(r[1])]);
+    if(!data.length&&!source.length)return null;const value={name,data,source};M.cepstrumCache.set(test.id,value);return value;
   }
-  function thin(data,limit=1600){if(data.length<=limit)return data;const out=[data[0]],buckets=Math.floor((limit-2)/2),step=(data.length-2)/buckets;for(let b=0;b<buckets;b++){const from=1+Math.floor(b*step),to=Math.min(data.length-1,1+Math.floor((b+1)*step));let low=data[from],high=data[from];for(let i=from+1;i<to;i++){if(data[i].y<low.y)low=data[i];if(data[i].y>high.y)high=data[i]}out.push(...(low.x<high.x?[low,high]:[high,low]));}out.push(data.at(-1));return out;}
+  function thin(data,limit=1800){if(data.length<=limit)return data;const out=[data[0]],buckets=Math.floor((limit-2)/2),step=(data.length-2)/buckets;for(let b=0;b<buckets;b++){const from=1+Math.floor(b*step),to=Math.min(data.length-1,1+Math.floor((b+1)*step));let low=data[from],high=data[from];for(let i=from+1;i<to;i++){if(data[i].y<low.y)low=data[i];if(data[i].y>high.y)high=data[i]}out.push(...(low.x<high.x?[low,high]:[high,low]));}out.push(data.at(-1));return out;}
+  function fft(re,im,inverse=false){const n=re.length;for(let i=1,j=0;i<n;i++){let bit=n>>1;for(;j&bit;bit>>=1)j^=bit;j^=bit;if(i<j){[re[i],re[j]]=[re[j],re[i]];[im[i],im[j]]=[im[j],im[i]];}}for(let len=2;len<=n;len<<=1){const angle=(inverse?2:-2)*Math.PI/len,baseR=Math.cos(angle),baseI=Math.sin(angle);for(let i=0;i<n;i+=len){let wr=1,wi=0;for(let j=0;j<len/2;j++){const a=i+j,b=a+len/2,tr=re[b]*wr-im[b]*wi,ti=re[b]*wi+im[b]*wr;re[b]=re[a]-tr;im[b]=im[a]-ti;re[a]+=tr;im[a]+=ti;const next=wr*baseR-wi*baseI;wi=wr*baseI+wi*baseR;wr=next;}}}if(inverse)for(let i=0;i<n;i++){re[i]/=n;im[i]/=n;}}
+  function calculateCepstrum(source){if(source.length<4)return[];const sorted=source.map(p=>({x:num(p[0]),y:num(p[1])})).filter(p=>isNum(p.x)&&isNum(p.y)).sort((a,b)=>a.x-b.x),diffs=[];for(let i=1;i<sorted.length;i++)if(sorted[i].x>sorted[i-1].x)diffs.push(sorted[i].x-sorted[i-1].x);diffs.sort((a,b)=>a-b);let step=diffs[Math.floor(diffs.length*.1)]||1,xmin=sorted[0].x,xmax=sorted.at(-1).x;step=Math.max(step,(xmax-xmin)/16383);const count=Math.floor((xmax-xmin)/step)+1,uniform=new Float64Array(count);let cursor=0;for(let i=0;i<count;i++){const x=xmin+i*step;while(cursor+1<sorted.length&&sorted[cursor+1].x<x)cursor++;const a=sorted[cursor],b=sorted[Math.min(cursor+1,sorted.length-1)],t=b.x===a.x?0:(x-a.x)/(b.x-a.x);uniform[i]=a.y+t*(b.y-a.y);}let n=1;while(n<count)n<<=1;const re=new Float64Array(n),im=new Float64Array(n),mean=uniform.reduce((sum,v)=>sum+v,0)/count;for(let i=0;i<count;i++)re[i]=uniform[i]-mean;fft(re,im);for(let i=0;i<n;i++){re[i]=Math.log(Math.max(1e-12,Math.hypot(re[i],im[i])));im[i]=0;}fft(re,im,true);const result=[];for(let i=0;i<Math.floor(n/2);i++)result.push({x:i*step,y:re[i]});return result;}
+  function setGraphState(svg,empty,isEmpty,message){empty.textContent=message;empty.classList.toggle('hidden',!isEmpty);empty.parentElement.classList.toggle('empty-chart',isEmpty);if(isEmpty)svg.innerHTML='';}
+  function drawPlot(svg,raw,{robust=false,color='#1e6c5b'}={}){if(!raw.length)return;const all=raw.map(p=>Array.isArray(p)?{x:num(p[0]),y:num(p[1])}:p).filter(p=>isNum(p.x)&&isNum(p.y)),data=thin(all),xmin=Math.min(...all.map(p=>p.x)),xmax=Math.max(...all.map(p=>p.x)),ys=all.map(p=>p.y),ordered=[...ys].sort((a,b)=>a-b),q=p=>ordered[Math.floor((ordered.length-1)*p)];let ymin=robust?q(.01):ordered[0],ymax=robust?q(.99):ordered.at(-1);if(ymax===ymin)ymax=ymin+1;const pad=(ymax-ymin)*.08;ymin-=pad;ymax+=pad;const w=Math.max(320,svg.clientWidth),h=280,L=62,R=w-20,T=17,B=h-34,x=v=>L+(v-xmin)/(xmax-xmin||1)*(R-L),y=v=>B-(Math.max(ymin,Math.min(ymax,v))-ymin)/(ymax-ymin)*(B-T);let markup='';for(let i=0;i<=5;i++){const v=xmin+(xmax-xmin)*i/5,px=x(v);markup+=`<line x1="${px}" y1="${T}" x2="${px}" y2="${B}" stroke="#17231f" stroke-opacity=".07"/><text x="${px}" y="${h-12}" text-anchor="middle" fill="#7c8781" font-size="9">${fmt(v)}</text>`;}for(let i=0;i<=4;i++){const v=ymin+(ymax-ymin)*i/4,py=y(v);markup+=`<line x1="${L}" y1="${py}" x2="${R}" y2="${py}" stroke="#17231f" stroke-opacity=".07"/><text x="${L-9}" y="${py+3}" text-anchor="end" fill="#7c8781" font-size="9">${fmt(v)}</text>`;}markup+=`<path d="${data.map((p,i)=>`${i?'L':'M'}${x(p.x).toFixed(2)},${y(p.y).toFixed(2)}`).join(' ')}" fill="none" stroke="${color}" stroke-width="1.3" vector-effect="non-scaling-stroke"/>`;svg.setAttribute('viewBox',`0 0 ${w} ${h}`);svg.innerHTML=markup;}
   async function drawCepstrum(test){
-    let cep;try{cep=await cepstrumFor(test);}catch(e){error(e.message);cep=null;} E.chartTitle.textContent=`${test.id} · ${test.name}`;
-    if(!cep||!cep.data.length){E.chartMeta.textContent='нет листа';E.chartEmpty.classList.remove('hidden');E.chartEmpty.parentElement.classList.add('empty-chart');return;}
-    E.chartEmpty.classList.add('hidden');E.chartEmpty.parentElement.classList.remove('empty-chart');
-    const data=thin(cep.data),xmin=cep.data[0].x,xmax=cep.data.at(-1).x,ys=cep.data.map(p=>p.y),sorted=[...ys].sort((a,b)=>a-b),quantile=p=>sorted[Math.floor((sorted.length-1)*p)];
-    let ymin=quantile(.01),ymax=quantile(.99);if(ymax===ymin){ymin=Math.min(...ys);ymax=Math.max(...ys)||ymin+1;}const pad=(ymax-ymin)*.08;ymin-=pad;ymax+=pad;
-    E.chartMeta.textContent=`лист «${cep.name}» · ${cep.data.length.toLocaleString('ru-RU')} точек · Y 1–99%`;
-    const w=Math.max(320,E.cep.clientWidth),h=280,L=62,R=w-20,T=17,B=h-34,x=v=>L+(v-xmin)/(xmax-xmin)*(R-L),y=v=>B-(Math.max(ymin,Math.min(ymax,v))-ymin)/(ymax-ymin)*(B-T);let s='';
-    for(let i=0;i<=5;i++){const v=xmin+(xmax-xmin)*i/5,px=x(v);s+=`<line x1="${px}" y1="${T}" x2="${px}" y2="${B}" stroke="#17231f" stroke-opacity=".07"/><text x="${px}" y="${h-12}" text-anchor="middle" fill="#7c8781" font-size="9">${fmt(v)}</text>`;}
-    for(let i=0;i<=4;i++){const v=ymin+(ymax-ymin)*i/4,py=y(v);s+=`<line x1="${L}" y1="${py}" x2="${R}" y2="${py}" stroke="#17231f" stroke-opacity=".07"/><text x="${L-9}" y="${py+3}" text-anchor="end" fill="#7c8781" font-size="9">${fmt(v)}</text>`;}
-    const path=data.map((p,i)=>`${i?'L':'M'}${x(p.x).toFixed(2)},${y(p.y).toFixed(2)}`).join(' ');s+=`<path d="${path}" fill="none" stroke="#1e6c5b" stroke-width="1.3" vector-effect="non-scaling-stroke"/>`;
-    E.cep.setAttribute('viewBox',`0 0 ${w} ${h}`);E.cep.innerHTML=s;
+    let bundle;try{bundle=await cepstrumFor(test);}catch(e){error(e.message);bundle=null;}const caption=`${test.id} · ${test.name}`;E.chartTitle.textContent=caption;E.computedTitle.textContent=caption;E.signalTitle.textContent=caption;
+    const stored=bundle?.data||[],source=bundle?.source||[],computed=calculateCepstrum(source);
+    setGraphState(E.cep,E.chartEmpty,!stored.length,'Для этого испытания лист с кепстром не найден');E.chartMeta.textContent=stored.length?`лист «${bundle.name}» · ${stored.length.toLocaleString('ru-RU')} точек · Y 1–99%`:'нет листа';if(stored.length)drawPlot(E.cep,stored,{robust:true,color:'#1e6c5b'});
+    setGraphState(E.computed,E.computedEmpty,!computed.length,'Недостаточно данных для расчёта кепстра');E.computedMeta.textContent=computed.length?`${computed.length.toLocaleString('ru-RU')} точек · IFFT(log|FFT|) · Y 1–99%`:'нет исходного сигнала';if(computed.length)drawPlot(E.computed,computed,{robust:true,color:'#586acb'});
+    setGraphState(E.signal,E.signalEmpty,!source.length,'Для этого испытания исходный сигнал не найден');E.signalMeta.textContent=source.length?`${source.length.toLocaleString('ru-RU')} точек`:'нет листа';if(source.length)drawPlot(E.signal,source,{color:'#9b633c'});
   }
 
   async function loadDataset(item){
@@ -121,6 +119,7 @@
     event.preventDefault();const current=+E.select.value||0,next=Math.max(0,Math.min(M.tests.length-1,current+(event.key==='ArrowUp'?-1:1)));
     if(next!==current){E.select.value=String(next);drawWell();}
   });
+  document.addEventListener('click',event=>{const head=event.target.closest('.chart-head');if(head)head.closest('.cepstrum-card').classList.toggle('collapsed');});
   let resizeTimer;window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>M&&drawWell(),100);});
   initCatalog();
 })();

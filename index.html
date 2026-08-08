@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>ГРП · Схема скважины</title>
-  <link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="overrides.css">
+  <link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="overrides.css"><link rel="stylesheet" href="charts-extra.css">
 </head>
 <body>
   <main>
@@ -22,7 +22,9 @@
         </div>
         <div class="scroll"><svg id="diagram" viewBox="0 0 1200 300" aria-label="Схема скважины"><text x="600" y="150" text-anchor="middle" fill="#8da098" font-size="13">Выберите скважину, чтобы построить схему</text></svg></div>
       </div>
-      <div class="cepstrum-card empty-chart"><div class="chart-head"><div><label>КЕПСТР ВЫБРАННОГО ИСПЫТАНИЯ</label><strong id="chartTitle">—</strong></div><span id="chartMeta"></span></div><div id="chartEmpty" class="chart-empty">Сначала выберите скважину и испытание</div><svg id="cepstrum" aria-label="График кепстра"></svg></div>
+      <div class="cepstrum-card empty-chart"><button class="chart-head" type="button"><div><label>КЕПСТР ИЗ XLSX</label><strong id="chartTitle">—</strong></div><span id="chartMeta"></span><i>⌃</i></button><div id="chartEmpty" class="chart-empty">Сначала выберите скважину и испытание</div><svg id="cepstrum" aria-label="Кепстр из XLSX"></svg></div>
+      <div class="cepstrum-card empty-chart"><button class="chart-head" type="button"><div><label>РАСЧЁТНЫЙ ВЕЩЕСТВЕННЫЙ КЕПСТР</label><strong id="computedTitle">—</strong></div><span id="computedMeta"></span><i>⌃</i></button><div id="computedEmpty" class="chart-empty">Сначала выберите скважину и испытание</div><svg id="computedCepstrum" aria-label="Рассчитанный кепстр"></svg></div>
+      <div class="cepstrum-card empty-chart"><button class="chart-head" type="button"><div><label>ИСХОДНЫЙ СИГНАЛ</label><strong id="signalTitle">—</strong></div><span id="signalMeta"></span><i>⌃</i></button><div id="signalEmpty" class="chart-empty">Сначала выберите скважину и испытание</div><svg id="signalGraph" aria-label="Исходный сигнал"></svg></div>
       <details><summary>Распознанные данные <span id="summary"></span></summary><div class="table"><table><thead><tr><th>№ испытания</th><th>Название</th><th>Порт шара</th><th>Глубина</th></tr></thead><tbody id="rows"></tbody></table></div></details>
     </section>
     <input type="file" id="file" accept=".xlsx,.xls" hidden>
