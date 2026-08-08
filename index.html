@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>ГРП · Схема скважины</title>
-  <link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="overrides.css"><link rel="stylesheet" href="charts-extra.css"><link rel="stylesheet" href="simulation.css">
+  <link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="overrides.css"><link rel="stylesheet" href="charts-extra.css"><link rel="stylesheet" href="simulation.css"><link rel="stylesheet" href="mini-well.css">
 </head>
 <body>
   <main>
@@ -19,6 +19,7 @@
           </label>
           <span class="key-hint"><kbd>↑</kbd> предыдущее <kbd>↓</kbd> следующее</span>
           <div class="legend"><span><i class="p"></i> Перфорация / муфта</span><span><i class="n"></i> Конец НКТ</span><span><i class="b"></i> Шар</span><span><i class="m"></i> Изолированный участок</span></div>
+          <svg id="miniWell" class="mini-well" aria-label="Миниатюра скважины"></svg>
       </div>
       <div class="card well-card">
         <div class="scroll"><svg id="diagram" viewBox="0 0 1200 300" aria-label="Схема скважины"><text x="600" y="150" text-anchor="middle" fill="#8da098" font-size="13">Выберите скважину, чтобы построить схему</text></svg></div>
