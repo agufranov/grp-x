@@ -12,12 +12,12 @@
       <div id="stickySentinel" aria-hidden="true"></div>
       <div class="well-head" id="wellHead">
           <label>Скважина
-            <select id="dataset"><option value="">Выберите скважину…</option><option value="upload">＋ Загрузить XLSX…</option></select>
+            <select id="dataset" class="needs-selection"><option value="">Выберите скважину…</option><option value="upload">＋ Загрузить XLSX…</option></select>
           </label>
-          <label>Испытание
+          <label id="testControl" hidden>Испытание
             <select id="select" disabled><option>Сначала выберите скважину</option></select>
           </label>
-          <span class="key-hint"><kbd>↑</kbd> предыдущее <kbd>↓</kbd> следующее</span>
+          <span id="keyHint" class="key-hint" hidden><kbd>↑</kbd> предыдущее <kbd>↓</kbd> следующее</span>
           <svg id="miniWell" class="mini-well well-scale-target" aria-label="Миниатюра скважины" aria-describedby="scaleTooltip"></svg>
       </div>
       <div class="card well-card">
