@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ГРП · Схема скважины</title>
+  <link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="overrides.css">
+</head>
+<body>
+  <main>
+    <section id="workspace">
+      <div class="card well-card">
+        <div class="well-head">
+          <label>Скважина
+            <select id="dataset"><option value="">Выберите скважину…</option><option value="upload">＋ Загрузить XLSX…</option></select>
+          </label>
+          <label>Испытание
+            <select id="select" disabled><option>Сначала выберите скважину</option></select>
+          </label>
+          <span class="key-hint"><kbd>↑</kbd> предыдущее <kbd>↓</kbd> следующее</span>
+          <div class="legend"><span><i class="p"></i> Перфорация / муфта</span><span><i class="n"></i> Конец НКТ</span><span><i class="b"></i> Шар</span><span><i class="m"></i> Изолированный участок</span></div>
+        </div>
+        <div class="scroll"><svg id="diagram" viewBox="0 0 1200 300" aria-label="Схема скважины"><text x="600" y="150" text-anchor="middle" fill="#8da098" font-size="13">Выберите скважину, чтобы построить схему</text></svg></div>
+      </div>
+      <div class="cepstrum-card empty-chart"><div class="chart-head"><div><label>КЕПСТР ВЫБРАННОГО ИСПЫТАНИЯ</label><strong id="chartTitle">—</strong></div><span id="chartMeta"></span></div><div id="chartEmpty" class="chart-empty">Сначала выберите скважину и испытание</div><svg id="cepstrum" aria-label="График кепстра"></svg></div>
+      <details><summary>Распознанные данные <span id="summary"></span></summary><div class="table"><table><thead><tr><th>№ испытания</th><th>Название</th><th>Порт шара</th><th>Глубина</th></tr></thead><tbody id="rows"></tbody></table></div></details>
+    </section>
+    <input type="file" id="file" accept=".xlsx,.xls" hidden>
+    <div id="toast" class="toast hidden"></div>
+  </main>
+  <script src="vendor/xlsx.full.min.js"></script><script src="app.js"></script>
+</body>
+</html>
