@@ -99,11 +99,7 @@
     const yMin = isolate ? -1.6 : 1.8, yMax = isolate ? 1.6 : 9.0, y = value => 218 - (value - yMin) / (yMax - yMin) * 174;
     const total = t => { const p = pressure(t); return isolate ? p.wave : p.trend + p.wave; };
     const mainPath = pathFor(total, y), trendPath = isolate ? '' : pathFor(t => pressure(t).trend, y), current = pressure(time), currentValue = isolate ? current.wave : current.trend + current.wave, cx = graphX(time), cy = y(currentValue);
-    let yGrid = '';
-    for (let i = 0; i <= 3; i++) { const value = yMin + (yMax - yMin) * i / 3, py = y(value); yGrid += `<line x1="58" y1="${py}" x2="878" y2="${py}"/><text x="47" y="${py + 3}" text-anchor="end">${value.toFixed(isolate ? 1 : 0)}</text>`; }
-    let xTicks = '';
-    for (let tick = -1; tick <= 6; tick++) xTicks += `<line x1="${graphX(tick)}" y1="218" x2="${graphX(tick)}" y2="223"/><text x="${graphX(tick)}" y="239" text-anchor="middle">${tick === 0 ? 'СТОП' : tick}</text>`;
-    E.graph.innerHTML = `<g stroke="#e5e8e3" stroke-width="1">${yGrid}</g><g fill="#7b8580" font-size="9">${xTicks}</g><line x1="${graphX(0)}" y1="36" x2="${graphX(0)}" y2="218" stroke="#d6a755" stroke-width="1.5" stroke-dasharray="4 4"/><text x="${graphX(0) + 6}" y="31" fill="#9a742c" font-size="9" font-weight="800">СОБЫТИЕ</text>
+    E.graph.innerHTML = `<line x1="${graphX(0)}" y1="36" x2="${graphX(0)}" y2="218" stroke="#d6a755" stroke-width="1.5" stroke-dasharray="4 4"/><text x="${graphX(0) + 6}" y="31" fill="#9a742c" font-size="9" font-weight="800">СОБЫТИЕ</text>
       ${trendPath ? `<path d="${trendPath}" fill="none" stroke="#b5ada0" stroke-width="2" stroke-dasharray="6 5"/><text x="760" y="${y(pressure(5).trend) - 9}" fill="#91897d" font-size="9">общий уровень</text>` : `<line x1="58" y1="${y(0)}" x2="878" y2="${y(0)}" stroke="#aab5af" stroke-width="1.5" stroke-dasharray="5 4"/>`}
       <path d="${mainPath}" fill="none" stroke="${config.color}" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/><line x1="${cx}" y1="28" x2="${cx}" y2="218" stroke="#273d34" stroke-width="1" opacity=".35"/><circle cx="${cx}" cy="${cy}" r="6" fill="#fff" stroke="${config.color}" stroke-width="3"/><text x="${isolate ? 18 : 16}" y="29" fill="#66736d" font-size="9" font-weight="800">${isolate ? 'Δp' : 'p'}</text><text x="878" y="252" text-anchor="end" fill="#7b8580" font-size="9">время, с</text>`;
   }
