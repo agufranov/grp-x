@@ -158,10 +158,10 @@
     return{grid,processed,cepstrum:cepstrumFromValues(windowed,grid.step)};
   }
   function setGraphState(svg,empty,isEmpty,message){empty.textContent=message;empty.classList.toggle('hidden',!isEmpty);empty.parentElement.classList.toggle('empty-chart',isEmpty);if(isEmpty){svg.innerHTML='';const state=cepstrumScaleStates.get(svg);if(state){state.raw=[];state.options=null;}}}
-  function drawPlot(svg,raw,{robust=false,color='#1e6c5b'}={}){
-    if(!raw.length)return;const scaleState=cepstrumScaleStates.get(svg),options={robust,color};if(scaleState){scaleState.raw=raw;scaleState.options=options;}
+  function drawPlot(svg,raw,{robust=false,color='#1e6c5b',xDomain=null}={}){
+    if(!raw.length)return;const scaleState=cepstrumScaleStates.get(svg),options={robust,color,xDomain};if(scaleState){scaleState.raw=raw;scaleState.options=options;}
     const normalize=series=>series.map(p=>Array.isArray(p)?{x:num(p[0]),y:num(p[1])}:p).filter(p=>isNum(p.x)&&isNum(p.y)).sort((a,b)=>a.x-b.x),all=normalize(raw);if(!all.length)return;
-    const fullXmin=all[0].x,fullXmax=all.at(-1).x,scale=scaleState?.scale||CEPSTRUM_SCALE_DEFAULT,offset=scaleState?.offset||0,fullSpan=fullXmax-fullXmin||1,xmin=fullXmin+fullSpan*offset,xmax=xmin+fullSpan/scale;
+    const fixedXmin=num(xDomain?.[0]),fixedXmax=num(xDomain?.[1]),hasFixedXDomain=isNum(fixedXmin)&&isNum(fixedXmax)&&fixedXmax>fixedXmin,fullXmin=hasFixedXDomain?fixedXmin:all[0].x,fullXmax=hasFixedXDomain?fixedXmax:all.at(-1).x,scale=scaleState?.scale||CEPSTRUM_SCALE_DEFAULT,offset=scaleState?.offset||0,fullSpan=fullXmax-fullXmin||1,xmin=fullXmin+fullSpan*offset,xmax=xmin+fullSpan/scale;
     const visible=series=>{const lowerBound=value=>{let low=0,high=series.length;while(low<high){const middle=(low+high)>>1;if(series[middle].x<value)low=middle+1;else high=middle;}return low;},from=Math.max(0,lowerBound(xmin)-1),to=Math.min(series.length,lowerBound(xmax)+1);return thin(series.slice(from,Math.max(from+1,to)));},data=visible(all);
     const ordered=all.map(p=>p.y).sort((a,b)=>a-b),q=p=>ordered[Math.floor((ordered.length-1)*p)];let ymin=robust?q(.01):ordered[0],ymax=robust?q(.99):ordered.at(-1);if(ymax===ymin)ymax=ymin+1;const pad=(ymax-ymin)*.08;ymin-=pad;ymax+=pad;
     const compact=svg.classList.contains('signal-plot'),w=Math.max(320,svg.clientWidth||svg.parentElement.clientWidth),h=compact?104:280,L=CEPSTRUM_PLOT_LEFT,R=w-CEPSTRUM_PLOT_RIGHT,T=compact?8:17,B=h-(compact?24:34),x=value=>L+(value-xmin)/(xmax-xmin||1)*(R-L),y=value=>B-(Math.max(ymin,Math.min(ymax,value))-ymin)/(ymax-ymin)*(B-T),clipId=`${svg.id}PlotClip`,path=series=>series.map((point,i)=>`${i?'L':'M'}${x(point.x).toFixed(2)},${y(point.y).toFixed(2)}`).join(' '),xTicks=5,yTicks=compact?2:4,labelSize=compact?8:9;
@@ -206,11 +206,11 @@
     E.filterStart.value=String(settings.start);E.filterEnd.value=String(settings.end);E.filterLow.value=String(settings.low);E.filterHigh.value=String(settings.high);E.filterInterpolation.value=settings.interpolation;updateFilterOutputs();
   }
   function renderSignalAnalysis(){
-    analysisFrame=0;if(!currentSignalAnalysis)return;const {source,settings}=currentSignalAnalysis,result=analyzeSignal(source,settings);
+    analysisFrame=0;if(!currentSignalAnalysis)return;const {source,settings,bounds}=currentSignalAnalysis,result=analyzeSignal(source,settings);
     if(!result){setGraphState(E.computed,E.computedEmpty,true,'Недостаточно данных в выбранном окне');E.computedMeta.textContent='недостаточно данных';setGraphState(E.computedSignal,E.computedSignalEmpty,true,'Недостаточно данных в выбранном окне');E.computedSignalMeta.textContent='недостаточно данных';return;}
     const computed=result.cepstrum,band=`${fmt(settings.low)}–${fmt(settings.high)} Гц`,windowText=`${fmt(result.grid.xmin)}–${fmt(result.grid.xmax)} с`,interpolation=INTERPOLATION_LABELS[settings.interpolation];
     setGraphState(E.computed,E.computedEmpty,!computed.length,'Недостаточно данных для расчёта кепстра');E.computedMeta.textContent=computed.length?`${computed.length.toLocaleString('ru-RU')} точек · ${windowText} · ${band} · ${interpolation}`:'нет исходного сигнала';if(computed.length)drawPlot(E.computed,computed,{robust:true,color:'#586acb'});
-    setGraphState(E.computedSignal,E.computedSignalEmpty,false,'');E.computedSignalMeta.textContent=`${result.processed.length.toLocaleString('ru-RU')} отсчётов · ${windowText} · ${band} · ${interpolation}`;drawPlot(E.computedSignal,result.processed,{color:'#586acb'});
+    setGraphState(E.computedSignal,E.computedSignalEmpty,false,'');E.computedSignalMeta.textContent=`${result.processed.length.toLocaleString('ru-RU')} отсчётов · ${windowText} · ${band} · ${interpolation}`;drawPlot(E.computedSignal,result.processed,{color:'#586acb',xDomain:[bounds.xmin,bounds.xmax]});
     currentSignalAnalysis.result=result;
   }
   function scheduleSignalAnalysis(){if(!analysisFrame)analysisFrame=requestAnimationFrame(renderSignalAnalysis);}
