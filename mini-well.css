@@ -1,1 +1,3 @@
 .mini-well{position:absolute;top:100%;left:0;display:block;width:100%;height:80px;overflow:visible;pointer-events:none;visibility:hidden;background:#29343a;border-radius:0 0 10px 10px;box-shadow:0 9px 20px #1119}.well-head.is-well-stuck{border-radius:0;box-shadow:none}.well-head.is-well-stuck .mini-well{visibility:visible}.well-head .simulation-controls select{width:100%}
+.well-head.is-well-stuck .mini-well{box-shadow:none}
+.well-head.is-well-stuck .mini-well{height:65px}
