@@ -10,3 +10,11 @@ html.is-scaling-well,
 html.is-scaling-well *{cursor:ew-resize!important;user-select:none!important}
 html.is-panning-well,
 html.is-panning-well *{cursor:grabbing!important;user-select:none!important}
+.cepstrum-time-boundaries,.cepstrum-cursor-time,.cepstrum-object-time{pointer-events:none;font-family:Inter,"Segoe UI",sans-serif;font-variant-numeric:tabular-nums}
+.cepstrum-time-boundaries line{stroke:#8d9a94;stroke-width:1;vector-effect:non-scaling-stroke}
+.cepstrum-time-boundaries text{fill:#65736d;stroke:#fffdfa;stroke-width:2;paint-order:stroke;font-size:8px;font-weight:650}
+.cepstrum-object-time line{stroke:#688df2;stroke-width:1;vector-effect:non-scaling-stroke}
+.cepstrum-object-time text{fill:#526fc4;stroke:#fffdfa;stroke-width:2;paint-order:stroke;font-size:7px;font-weight:750}
+.cepstrum-cursor-time>line{stroke:#e15f48;stroke-width:1;vector-effect:non-scaling-stroke}
+.cepstrum-cursor-time-badge rect{fill:#29343a;stroke:#fffdfa;stroke-width:1;vector-effect:non-scaling-stroke}
+.cepstrum-cursor-time-badge text{fill:#fff;font-size:8px;font-weight:750}
